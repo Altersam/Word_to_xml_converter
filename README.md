@@ -172,43 +172,6 @@ S: Текст вопроса
 - 8+ цифр: только один ответ (8! = 40320 — слишком много)
 - Фразы "в порядке возрастания/убывания" блокируют перестановки
 
----
-
-## Логи конвертации
-
-### Результат обработки (2026-04-08)
-
-```
-Файл                              Вопросов  Маркеры
-вопросы-АЯ  10кл  ВИ ЛФУ.xml       615     multichoice_one, shortanswer_phrase, matching, gapselect
-вопросы-АЯ  8кл  ВИ ЛФУ.xml        456     multichoice_one, matching
-вопросы-ИСТ 10кл  ВИ ЛФУ.xml       131     match, multichoice_one, shortanswer_numcombo, match_123
-вопросы-ИЯ  10кл  ВИ ЛФУ.xml        95     multichoice_one, matching, gapselect
-вопросы-МАТ  10кл  ВИ ЛФУ.xml      422     numerical, multichoice_one
-вопросы-МАТ  8кл  ВИ ЛФУ.xml       200     numerical, multichoice_one
-вопросы-НЯ  10кл  ВИ ЛФУ.xml        95     multichoice_one, matching, gapselect
-вопросы-ОБЩ 10кл  ВИ ЛФУ.xml       375     multichoice_many, shortanswer_partial, match
-вопросы-РЯ  10кл  ВИ ЛФУ.xml        510     multichoice_many, shortanswer_phrase, ddmatch, shortanswer_numcombo
-вопросы-ФИЗ  10кл  ВИ ЛФУ.xml       230     multichoice_one, numerical
-вопросы-ФЯ  10кл  ВИ ЛФУ  2026.xml   95     multichoice_one, shortanswer_phrase, matching, gapselect
-                                    -----
-Итого:                             3224     Ошибок: 0
-```
-Файл                              Вопросов  Маркеры
-вопросы-АЯ  10кл  ВИ ЛФУ.xml       615     multichoice_one, shortanswer_phrase, matching, gapselect
-вопросы-АЯ  8кл  ВИ ЛФУ.xml        456     multichoice_one, matching
-вопросы-ИСТ 10кл  ВИ ЛФУ.xml       131     match, multichoice_one, shortanswer_numcombo, match_123
-вопросы-ИЯ  10кл  ВИ ЛФУ.xml        95     multichoice_one, matching, gapselect
-вопросы-МАТ  10кл  ВИ ЛФУ.xml      422     numerical, multichoice_one
-вопросы-МАТ  8кл  ВИ ЛФУ.xml       200     numerical, multichoice_one
-вопросы-НЯ  10кл  ВИ ЛФУ.xml        95     multichoice_one, matching, gapselect
-вопросы-ОБЩ 10кл  ВИ ЛФУ.xml       375     multichoice_many, shortanswer_partial, match
-вопросы-РЯ  10кл  ВИ ЛФУ.xml       510     multichoice_many, shortanswer_phrase, ddmatch, shortanswer_numcombo
-вопросы-ФИЗ  10кл  ВИ ЛФУ.xml      230     multichoice_one, numerical
-вопросы-ФЯ  10кл  ВИ ЛФУ  2026.xml  95     multichoice_one, shortanswer_phrase, matching, gapselect
-                                   -----
-Итого:                             3224     Ошибок: 0
-```
 
 ### Исправленные баги (из v3 baseline)
 
