@@ -46,8 +46,8 @@ MARKER_DESCRIPTIONS = {
     'multichoice_one': 'Один правильный',
     'multichoice_many': 'Несколько правильных (-100%)',
     'shortanswer_phrase': 'Текстовый ввод',
-    'shortanswer_partial': 'Цифры partial scoring',
-    'shortanswer_numcombo': 'Цифры любой порядок',
+    'numerical_partial': 'Цифры partial scoring',
+    'numerical_numcombo': 'Цифры любой порядок',
     'matching': 'Соотношение L/R',
     'match_123': 'Последовательность',
     'match': 'Соотношение (=matching)',
@@ -61,8 +61,8 @@ MARKER_COLORS = {
     'multichoice_one':      QColor(200, 230, 255),
     'multichoice_many':     QColor(180, 220, 255),
     'shortanswer_phrase':   QColor(200, 255, 200),
-    'shortanswer_partial':  QColor(220, 255, 200),
-    'shortanswer_numcombo': QColor(240, 255, 200),
+    'numerical_partial':    QColor(220, 255, 200),
+    'numerical_numcombo':   QColor(240, 255, 200),
     'matching':             QColor(255, 230, 200),
     'match_123':            QColor(255, 220, 180),
     'match':                QColor(255, 230, 200),
@@ -86,7 +86,7 @@ COLOR_ERROR   = QColor(255, 220, 220)
 class ParsedQuestion:
     """Один вопрос, извлечённый из docx."""
     __slots__ = ('name', 'grade', 'marker', 'subcategory',
-                 'content', 'auto_type', 'errors', 'line_num')
+                 'content', 'auto_type', 'errors', 'line_num', 'selected')
 
     def __init__(self):
         self.name: str = ''
@@ -97,6 +97,7 @@ class ParsedQuestion:
         self.auto_type: str = ''
         self.errors: List[str] = []
         self.line_num: int = 0
+        self.selected: bool = True  # По умолчанию все вопросы выбраны
 
 
 def parse_docx_preview(docx_path: str) -> tuple:
@@ -194,7 +195,7 @@ def parse_docx_preview(docx_path: str) -> tuple:
         has_lr = any(re.match(r'^[LR]\d+:', c) for c in q.content)
         has_num = any(re.match(r'^\d+:', c) for c in q.content)
         skip = ('cloze', 'matching', 'match_123', 'match',
-                'shortanswer_phrase', 'shortanswer_numcombo')
+                'shortanswer_phrase', 'numerical_numcombo')
         if not has_plus and q.auto_type not in skip and not has_lr and not has_num:
             q.errors.append('Нет правильного ответа (+:)')
         if not q.content:
@@ -352,20 +353,21 @@ class ConvertWorker(QThread):
     finished = pyqtSignal(bool, str)
     validation = pyqtSignal(list)
 
-    def __init__(self, docx_path, output_path, questions, split_xml, parent=None):
+    def __init__(self, docx_path, output_path, questions, split_xml, selected_indices=None, parent=None):
         super().__init__(parent)
         self.docx_path = docx_path
         self.output_path = output_path
         self.questions = questions
         self.split_xml = split_xml
+        self.selected_indices = selected_indices
 
     def run(self):
         try:
             self.progress.emit(10, 'Запуск конвертации...')
-            conv = MoodleConverter(self.docx_path, self.output_path)
+            conv = MoodleConverter(self.docx_path, self.output_path, self.selected_indices)
             conv._marker_overrides = {}
             for q in self.questions:
-                if q.marker:
+                if q.marker and getattr(q, 'selected', True):
                     conv._marker_overrides[q.name] = q.marker
 
             self.progress.emit(30, 'Конвертация...')
@@ -453,27 +455,52 @@ class MainWindow(QMainWindow):
 
         # --- Центр: дерево + лог ---
         splitter = QSplitter(Qt.Vertical)
+        splitter.setHandleWidth(1)
+
+        # Компактная панель с чекбоксом и счётчиком (в одну строку)
+        header_widget = QWidget()
+        header_layout = QHBoxLayout(header_widget)
+        header_layout.setContentsMargins(5, 2, 5, 2)
+        header_layout.setSpacing(10)
+        
+        self.chk_select_all = QCheckBox('Выделить все')
+        self.chk_select_all.setChecked(True)
+        self.chk_select_all.stateChanged.connect(self._toggle_select_all)
+        header_layout.addWidget(self.chk_select_all)
+        
+        self.lbl_selected = QLabel('Выбрано: 0 / 0')
+        header_layout.addWidget(self.lbl_selected)
+        
+        header_layout.addStretch()
+        
+        header_widget.setStyleSheet('background: #f0f0f0; border-bottom: 1px solid #ccc;')
+        header_widget.setFixedHeight(32)
+        splitter.addWidget(header_widget)
 
         self.tree = QTreeWidget()
-        self.tree.setHeaderLabels(['#', 'Имя / Содержимое', 'Маркер', 'Тип', 'Балл', 'Ошибки'])
-        self.tree.setColumnCount(6)
+        self.tree.setHeaderLabels(['✓', '#', 'Имя / Содержимое', 'Маркер', 'Тип', 'Балл', 'Ошибки'])
+        self.tree.setColumnCount(7)
         hdr = self.tree.header()
         hdr.setStretchLastSection(False)
         hdr.setSectionResizeMode(0, QHeaderView.Fixed)
-        hdr.setSectionResizeMode(1, QHeaderView.Stretch)
-        hdr.setSectionResizeMode(2, QHeaderView.Fixed)
-        hdr.setSectionResizeMode(3, QHeaderView.Fixed)
-        hdr.setSectionResizeMode(4, QHeaderView.Fixed)
+        hdr.setSectionResizeMode(1, QHeaderView.Fixed)
+        hdr.setSectionResizeMode(2, QHeaderView.Stretch)
+        hdr.setSectionResizeMode(3, QHeaderView.ResizeToContents)
+        hdr.setSectionResizeMode(4, QHeaderView.ResizeToContents)
         hdr.setSectionResizeMode(5, QHeaderView.ResizeToContents)
-        self.tree.setColumnWidth(0, 45)
-        self.tree.setColumnWidth(2, 200)
-        self.tree.setColumnWidth(3, 150)
-        self.tree.setColumnWidth(4, 50)
+        hdr.setSectionResizeMode(6, QHeaderView.ResizeToContents)
+        self.tree.setColumnWidth(0, 30)
+        self.tree.setColumnWidth(1, 45)
+        self.tree.setColumnWidth(3, 180)
+        self.tree.setColumnWidth(4, 140)
+        self.tree.setColumnWidth(5, 50)
         self.tree.setAlternatingRowColors(True)
-        self.tree.setSelectionMode(QAbstractItemView.SingleSelection)
+        self.tree.setSelectionMode(QAbstractItemView.ExtendedSelection)
         self.tree.setRootIsDecorated(True)
         self.tree.setAnimated(True)
         self.tree.setFont(QFont('Segoe UI', 9))
+        self.tree.itemChanged.connect(self._on_item_check_changed)
+        
         splitter.addWidget(self.tree)
 
         self.log_text = QTextEdit()
@@ -528,7 +555,7 @@ class MainWindow(QMainWindow):
             self.log(f'Вопросов с ошибками: {ec}', 'orange')
 
         self._fill_tree()
-        self.status_label.setText(f'Предпросмотр: {len(self.questions)} вопросов')
+        self._update_selected_count()
 
     def _fill_tree(self):
         self.tree.clear()
@@ -537,32 +564,35 @@ class MainWindow(QMainWindow):
         for idx, q in enumerate(self.questions):
             # --- Родительский элемент (заголовок вопроса) ---
             item = QTreeWidgetItem()
-            item.setText(0, str(idx + 1))
-            item.setTextAlignment(0, Qt.AlignCenter)
+            item.setCheckState(0, Qt.Checked)  # Галочка по умолчанию
+            item.setData(0, Qt.UserRole, idx)  # Сохраняем индекс вопроса
+            
+            item.setText(1, str(idx + 1))
+            item.setTextAlignment(1, Qt.AlignCenter)
 
             name_clean = q.name.replace('I:', '').strip()
             if len(name_clean) > 90:
                 name_clean = name_clean[:87] + '...'
-            item.setText(1, name_clean)
-            item.setToolTip(1, q.name)
+            item.setText(2, name_clean)
+            item.setToolTip(2, q.name)
 
             # Маркер — текст (комбобокс встроим позже)
-            item.setText(2, '')
-            item.setText(3, q.auto_type)
-            item.setText(4, str(q.grade))
-            item.setTextAlignment(4, Qt.AlignCenter)
+            item.setText(3, '')
+            item.setText(4, q.auto_type)
+            item.setText(5, str(q.grade))
+            item.setTextAlignment(5, Qt.AlignCenter)
 
             err_text = '; '.join(q.errors) if q.errors else ''
-            item.setText(5, err_text)
+            item.setText(6, err_text)
 
             # Цвета
             bg = MARKER_COLORS.get(q.marker, QColor(255, 255, 255))
             if q.errors:
                 bg = COLOR_ERROR
-            for c in range(6):
+            for c in range(7):
                 item.setBackground(c, bg)
             if q.errors:
-                item.setForeground(5, QBrush(QColor(180, 0, 0)))
+                item.setForeground(6, QBrush(QColor(180, 0, 0)))
 
             # Делаем расширяемым
             item.setChildIndicatorPolicy(QTreeWidgetItem.ShowIndicator)
@@ -571,34 +601,37 @@ class MainWindow(QMainWindow):
             for line in q.content:
                 child = QTreeWidgetItem()
                 child.setFlags(child.flags() & ~Qt.ItemIsSelectable)
+                
+                # Галочка не нужна для дочерних элементов
+                child.setCheckState(0, Qt.Unchecked)
 
                 display = line
                 if len(display) > 150:
                     display = display[:147] + '...'
-                child.setText(1, display)
-                child.setToolTip(1, line)
+                child.setText(2, display)
+                child.setToolTip(2, line)
 
                 # Окраска строк содержимого
                 if line.startswith('+:') or (line.startswith('+') and len(line) > 1 and line[1] in ' \t'):
+                    child.setForeground(2, QBrush(COLOR_CORRECT))
+                    child.setText(1, '+')
                     child.setForeground(1, QBrush(COLOR_CORRECT))
-                    child.setText(0, '+')
-                    child.setForeground(0, QBrush(COLOR_CORRECT))
                 elif line.startswith('-:') or (line.startswith('-') and len(line) > 1 and line[1] in ' \t'):
+                    child.setForeground(2, QBrush(COLOR_WRONG))
+                    child.setText(1, '-')
                     child.setForeground(1, QBrush(COLOR_WRONG))
-                    child.setText(0, '-')
-                    child.setForeground(0, QBrush(COLOR_WRONG))
                 elif line.startswith('S:'):
-                    child.setForeground(1, QBrush(COLOR_TEXT))
-                    child.setText(0, 'S')
-                    child.setForeground(0, QBrush(COLOR_META))
+                    child.setForeground(2, QBrush(COLOR_TEXT))
+                    child.setText(1, 'S')
+                    child.setForeground(1, QBrush(COLOR_META))
                 elif re.match(r'^[LR]\d+:', line):
-                    child.setForeground(1, QBrush(COLOR_META))
-                    child.setText(0, line[:2])
+                    child.setForeground(2, QBrush(COLOR_META))
+                    child.setText(1, line[:2])
                 elif re.match(r'^\d+:', line):
-                    child.setForeground(1, QBrush(COLOR_META))
-                    child.setText(0, '#')
+                    child.setForeground(2, QBrush(COLOR_META))
+                    child.setText(1, '#')
                 else:
-                    child.setForeground(1, QBrush(COLOR_TEXT))
+                    child.setForeground(2, QBrush(COLOR_TEXT))
 
                 item.addChild(child)
 
@@ -656,21 +689,27 @@ class MainWindow(QMainWindow):
         if not self.questions:
             self._do_preview()
 
-        eq = [q for q in self.questions if q.errors]
+        # Проверяем выбранные вопросы
+        selected_indices = [i for i, q in enumerate(self.questions) if getattr(q, 'selected', True)]
+        if not selected_indices:
+            QMessageBox.warning(self, 'Ошибка', 'Не выбрано ни одного вопроса')
+            return
+
+        eq = [q for q in self.questions if q.errors and getattr(q, 'selected', True)]
         if eq:
             r = QMessageBox.question(
                 self, 'Предупреждение',
-                f'{len(eq)} вопросов с ошибками.\nПродолжить?',
+                f'{len(eq)} выбранных вопросов с ошибками.\nПродолжить?',
                 QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
             if r != QMessageBox.Yes:
                 return
 
         self.log('\n' + '=' * 60)
-        self.log('Запуск конвертации...')
+        self.log(f'Запуск конвертации ({len(selected_indices)} вопросов)...')
         self.progress.setValue(0)
         self.status_label.setText('Конвертация...')
 
-        self.worker = ConvertWorker(dp, out, self.questions, self.chk_split.isChecked())
+        self.worker = ConvertWorker(dp, out, self.questions, self.chk_split.isChecked(), selected_indices)
         self.worker.progress.connect(self._on_progress)
         self.worker.finished.connect(self._on_finished)
         self.worker.validation.connect(self._on_validation)
@@ -710,6 +749,31 @@ class MainWindow(QMainWindow):
         self.log_text.append(f'<span style="color:{color}">{text}</span>')
         sb = self.log_text.verticalScrollBar()
         sb.setValue(sb.maximum())
+
+    # ---------- Checkbox ----------
+    def _on_item_check_changed(self, item, column):
+        if column == 0:
+            idx = item.data(0, Qt.UserRole)
+            if idx is not None:
+                checked = item.checkState(0) == Qt.Checked
+                self.questions[idx].selected = checked
+                self._update_selected_count()
+
+    def _toggle_select_all(self, state):
+        checked = state == Qt.Checked
+        for i, q in enumerate(self.questions):
+            q.selected = checked
+        # Обновляем чекбоксы в дереве
+        for i in range(self.tree.topLevelItemCount()):
+            item = self.tree.topLevelItem(i)
+            if item:
+                item.setCheckState(0, Qt.Checked if checked else Qt.Unchecked)
+        self._update_selected_count()
+
+    def _update_selected_count(self):
+        count = sum(1 for q in self.questions if getattr(q, 'selected', True))
+        self.lbl_selected.setText(f'Выбрано: {count} / {len(self.questions)}')
+        self.status_label.setText(f'Выбрано вопросов: {count} / {len(self.questions)}')
 
 
 # ============================================================

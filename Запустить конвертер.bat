@@ -1,6 +1,6 @@
 @echo off
 cd /d "%~dp0"
-python "%~dp0converter_gui.py"
+py -3.12 "%~dp0converter_gui.py"
 if %errorlevel% neq 0 (
     echo.
     echo [!] Error. Check Python and dependencies:

@@ -152,6 +152,9 @@ NUMERICAL_TEMPLATE = '''<question type="numerical">
     <unitpenalty>0.1000000</unitpenalty>
     <showunits>3</showunits>
     <unitsleft>0</unitsleft>
+    <correctfeedback format="html"><text/></correctfeedback>
+    <partiallycorrectfeedback format="html"><text/></partiallycorrectfeedback>
+    <incorrectfeedback format="html"><text/></incorrectfeedback>
 </question>'''
 
 
@@ -298,8 +301,8 @@ VALID_MARKERS = {
     'multichoice_one',      # Один правильный ответ
     'multichoice_many',     # Несколько правильных, штраф -100% за неправильный
     'shortanswer_phrase',   # Запись текста (фразы)
-    'shortanswer_partial',  # Цифры с partial scoring (100/50/0)
-    'shortanswer_numcombo', # Цифры в любом порядке (все перестановки = 100%)
+    'numerical_partial',    # Цифры с partial scoring (100/50/0)
+    'numerical_numcombo',   # Цифры в любом порядке (все перестановки = 100%)
     'matching',             # Соотношение (L/R пары)
     'match_123',            # Последовательность (фразы → номера позиций)
     'match',                # Соотношение (синоним matching)
@@ -314,8 +317,10 @@ MARKER_TO_QTYPE = {
     'multichoice_one':      'multichoice_one',
     'multichoice_many':     'multichoice_many',
     'shortanswer_phrase':   'shortanswer_phrase',
-    'shortanswer_partial':  'shortanswer_partial',
-    'shortanswer_numcombo': 'shortanswer_numcombo',
+    'shortanswer_partial':  'numerical_partial',
+    'shortanswer_numcombo': 'numerical_numcombo',
+    'numerical_partial':    'numerical_partial',
+    'numerical_numcombo':   'numerical_numcombo',
     'matching':             'matching',
     'match_123':            'match_123',
     'match':                'matching',        # match = matching
@@ -679,7 +684,9 @@ class XMLGenerator:
                 else:
                     fraction = 0
                 
-                results.append((perm_str, fraction))
+                # Добавляем только fraction = 100 или 50 (без fraction = 0)
+                if fraction > 0:
+                    results.append((perm_str, fraction))
         
         return results
 
@@ -744,16 +751,37 @@ class XMLGenerator:
             question_html = '<p>' + remove_service_markers(question_text) + '</p>'
             qt_elem.find('text').text = etree.CDATA(question_html)
         
-        # Для partial scoring (маркер {shortanswer_partial} или ИСТ/ОБЩ fallback)
+        # Для partial scoring (маркер {numerical_partial} или ИСТ/ОБЩ fallback)
         correct_answers = [a[0] for a in all_answers_ordered if a[1]]
         wrong_answers = [a[0] for a in all_answers_ordered if not a[1]]
         
-        use_partial = subject in ('ист', 'общ', 'partial')
-        use_numcombo = subject == 'numcombo'
+        # Используем numerical шаблон и partial scoring только для маркеров
+        use_partial = subject in ('numerical_partial', 'partial')
+        use_numcombo = subject == 'numerical_numcombo'
         
-        # Проверяем numcombo РАНЬШЕ partial, чтобы маркер {shortanswer_numcombo} имел приоритет
+        # Для numerical_partial и numerical_numcombo используем шаблон numerical
+        use_numerical_template = use_partial or use_numcombo
+        
+        if use_numerical_template:
+            tree = etree.fromstring(NUMERICAL_TEMPLATE)
+            # Удаляем placeholder answer из шаблона
+            default_answer = tree.find('.//answer')
+            if default_answer is not None:
+                tree.remove(default_answer)
+        #else:
+        #    tree = etree.fromstring(SHORTANSWER_TEMPLATE)  # tree already exists from line 700
+        
+        # Получаем qt_elem из НОВОГО tree (после возможной замены шаблона)
+        qt_elem = tree.find('questiontext')
+        
+        # Восстанавливаем name и grade (могут сброситься при замене tree)
+        clean_name = name.replace('I:', '').replace('I ', '').strip() if name.startswith(('I:', 'I ')) else name
+        tree.find('name').find('text').text = clean_name
+        tree.find('defaultgrade').text = f'{grade:.7f}'
+        
+        # Проверяем numcombo РАНЬШЕ partial, чтобы маркер {numerical_numcombo} имел приоритет
         if use_numcombo:
-            # {shortanswer_numcombo}: нумерация вариантов + генерация комбинаций
+            # {numerical_numcombo}: нумерация вариантов + генерация комбинаций
             # Создаём пронумерованный текст вопроса
             numbered_parts = []
             answer_positions = []  # [(позиция, текст, is_correct), ...]
@@ -814,7 +842,7 @@ class XMLGenerator:
                         etree.SubElement(ans_elem, 'text').text = ''.join(map(str, perm))
             return
         elif use_partial:
-            # {shortanswer_partial}: нумерация + partial scoring (100/50/0)
+            # {numerical_partial}: нумерация + partial scoring (100/50/0)
             # Создаём пронумерованный текст вопроса
             numbered_parts = []
             answer_positions = []  # [(позиция, текст, is_correct), ...]
@@ -1350,13 +1378,16 @@ class MoodleConverter:
       5. Сохранение результата
     """
     
-    def __init__(self, input_path: str, output_path: str):
+    def __init__(self, input_path: str, output_path: str, selected_indices: List[int] = None):
         self.input_path = input_path
         self.output_path = output_path
         self.image_processor = ImageProcessor()
         self.generator = XMLGenerator()
         self.errors: List[str] = []
         self.current_subject = ""
+        self.selected_indices = selected_indices  # Индексы выбранных вопросов
+        self._question_index = 0  # Счётчик вопросов для фильтрации
+        self._marker_overrides = {}  # Переопределения маркеров из GUI
     
     def convert(self) -> bool:
         """Основная функция конвертации."""
@@ -1390,6 +1421,7 @@ class MoodleConverter:
             last_question_name = ""
             last_grade = 1.0
             current_marker = ""  # текущий маркер типа вопроса
+            question_index = 0  # счётчик вопросов для фильтрации
             
             for line in lines:
                 line = unicodedata.normalize('NFC', line.strip())
@@ -1514,6 +1546,9 @@ class MoodleConverter:
                         self._save_question(question_content, last_question_name, last_grade, current_marker)
                         question_content = []
                     
+                    # Увеличиваем счётчик вопросов для фильтрации
+                    self._question_index += 1
+                    
                     # Извлекаем имя и балл нового вопроса
                     last_question_name = line
                     grade_match = re.search(r'b=(\d+)', line)
@@ -1551,6 +1586,16 @@ class MoodleConverter:
     
     def _save_question(self, content: List[str], name: str, grade: float, marker: str = ''):
         """Сохраняет вопрос в зависимости от его типа."""
+        # Проверяем, нужно ли сохранить этот вопрос
+        if self.selected_indices is not None:
+            idx = self._question_index - 1
+            if idx not in self.selected_indices:
+                return  # Пропускаем невыбранный вопрос
+        
+        # Используем маркер из _marker_overrides если установлен из GUI
+        if name in self._marker_overrides:
+            marker = self._marker_overrides[name]
+        
         try:
             q_type = QuestionTypeDetector.detect(content, self.current_subject, marker)
             
@@ -1560,10 +1605,10 @@ class MoodleConverter:
                 self.generator.create_multichoice(name, content, grade, single=False, penalty_wrong=-100)
             elif q_type == 'shortanswer_phrase':
                 self.generator.create_shortanswer(name, content, grade, subject='')
-            elif q_type == 'shortanswer_partial':
-                self.generator.create_shortanswer(name, content, grade, subject='partial')
-            elif q_type == 'shortanswer_numcombo':
-                self.generator.create_shortanswer(name, content, grade, subject='numcombo')
+            elif q_type == 'numerical_partial':
+                self.generator.create_shortanswer(name, content, grade, subject='numerical_partial')
+            elif q_type == 'numerical_numcombo':
+                self.generator.create_shortanswer(name, content, grade, subject='numerical_numcombo')
             elif q_type == 'numerical':
                 self.generator.create_shortanswer_numerical(name, content, grade)
             elif q_type == 'matching':
