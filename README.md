@@ -9,7 +9,8 @@ Word (.docx) to Moodle XML converter with graphical interface.
 | `converter_gui.py` | GUI application (PyQt5) |
 | `universal_moodle_converter_v3_stable.py` | Converter core (CLI + library) |
 | `table_compare.py` | Utility for comparing with reference XML |
-| `Шаблоны вопросов.docx` | Documentation on Word file markup |
+| `Шаблоны вопросов_new.docx` | Documentation on Word file markup |
+| `taskmanager/task-tracker.html` | Task history |
 
 ## Dependencies
 
@@ -23,6 +24,7 @@ pip install PyQt5 lxml python-docx docxlatex
 ```
 python converter_gui.py
 ```
+Or double-click `Запустить конвертер.bat`
 
 ### CLI (batch processing)
 ```
@@ -60,14 +62,16 @@ All questions in the block inherit the marker until the next `V2:`.
 | `{multichoice_one}` | multichoice (single=true) | One correct answer. `+:` = 100%, `-:` = 0% |
 | `{multichoice_many}` | multichoice (single=false) | Multiple correct answers. Penalty **-100%** for each incorrect |
 | `{shortanswer_phrase}` | shortanswer | Text input. Multiple `+:` = multiple acceptable answers |
-| `{numerical_partial}` | shortanswer | Multiple choice (numbered 1)2)3)...). All permutations with partial scoring: 100%/50% (no 0%) |
-| `{numerical_numcombo}` | shortanswer | Multiple choice. All position permutations = 100% |
+| `{numerical_partial}` | **numerical** | Multiple choice (numbered 1)2)3)...). All permutations with partial scoring: 100%/50% (no 0%) |
+| `{numerical_numcombo}` | **numerical** | Multiple choice. All position permutations = 100% |
 | `{matching}` / `{match}` | matching | Matching. Format `L1:` / `R1:`. Extra R = distractors |
 | `{match_123}` | matching | Sequence. Format `N: phrase` -> phrase matched to number |
 | `{ddmatch}` | ddmatch | Drag-and-drop. Format `L1:` / `R1:` |
 | `{gapselect}` | gapselect | Dropdown lists. Text with `(N)`, options `A)...D)`, key `+:ABCD` |
 | `{cloze}` | cloze | Embedded answers `{1:SHORTANSWER:=answer}` |
 | `{numerical}` | shortanswer | Numeric answer. Generates two variants: with `.` and with `,` |
+
+**Note:** `{numerical_partial}` and `{numerical_numcombo}` generate `type="numerical"` in XML output (not "shortanswer") because they expect numeric position answers (1,2,3...).
 
 If marker is not specified, type is determined by heuristic based on content.
 
@@ -90,18 +94,21 @@ The converter recognizes 7 formats of question beginning:
 
 1. **File selection** — "Browse" button for .docx
 2. **Output folder selection** — where to save XML
-3. **Preview** (QTreeWidget):
+3. **Question selection** — checkboxes to select which questions to convert
+   - "Выделить все" checkbox to select/deselect all
+   - Counter shows "Выбрано: X / Y"
+4. **Preview** (QTreeWidget):
    - List of all questions with expandable content
    - Clicking a question reveals: text (S:), correct (+:, green), incorrect (-:, red), L/R pairs
    - Marker combobox — can change marker for block
    - Color coding by marker type
    - Error highlighting in red
-4. **Preprocessing errors**:
+5. **Preprocessing errors**:
    - Missing correct answer
    - Empty question text
    - Unknown marker
-5. **Conversion** in separate thread with progress bar
-6. **XML post-processing**:
+6. **Conversion** in separate thread with progress bar
+7. **XML post-processing**:
    - Root element check (`quiz`)
    - Question type check (only valid Moodle types)
    - Base64 images check (not empty)
@@ -109,14 +116,14 @@ The converter recognizes 7 formats of question beginning:
    - Matching structure check (subquestion/answer)
    - Gapselect check (selectoption)
    - Answer presence check
-7. **XML splitting** into parts up to 1 MB (checkbox)
+8. **XML splitting** into parts up to 1 MB (checkbox)
 
 ### Marker Color Scheme
 
 | Color | Markers |
 |-------|---------|
 | Blue | multichoice_one, multichoice_many |
-| Green | shortanswer_phrase, shortanswer_partial, shortanswer_numcombo |
+| Green | numerical_partial, numerical_numcombo, shortanswer_phrase |
 | Orange | matching, match_123, match |
 | Reddish | ddmatch |
 | Violet | gapselect |
@@ -176,26 +183,37 @@ If answer is a string of digits in shortanswer_phrase:
 
 ## Conversion Logs
 
-### Processing Result (2026-04-08)
+### Processing Result (2026-04-09)
+
+```
+File                              Questions  Markers
+questions-ИСТ 10кл               131        match, multichoice_one, numerical_partial, match_123
+                                    -----
+Total:                            131        Errors: 0
+```
+
+### Testing Results (2026-04-08)
 
 ```
 File                              Questions  Markers
 questions-AJ  10cl                615        multichoice_one, shortanswer_phrase, matching, gapselect
 questions-AJ  8cl                 456        multichoice_one, matching
-questions-HIST 10cl               131        match, multichoice_one, shortanswer_numcombo, match_123
+questions-HIST 10cl               131        match, multichoice_one, numerical_numcombo, match_123
 questions-FL  10cl                 95        multichoice_one, matching, gapselect
 questions-MATH 10cl              422        numerical, multichoice_one
 questions-MATH 8cl               200        numerical, multichoice_one
 questions-GER  10cl               95        multichoice_one, matching, gapselect
-questions-SOC  10cl              375        multichoice_many, shortanswer_partial, match
-questions-RU  10cl                510        multichoice_many, shortanswer_phrase, ddmatch, shortanswer_numcombo
+questions-SOC  10cl              375        multichoice_many, numerical_partial, match
+questions-RU  10cl                510        multichoice_many, shortanswer_phrase, ddmatch, numerical_numcombo
 questions-PHYS 10cl              230        multichoice_one, numerical
 questions-LING 10cl               95        multichoice_one, shortanswer_phrase, matching, gapselect
                                     -----
 Total:                            3224       Errors: 0
 ```
 
-### Bug Fixes (from v3 baseline)
+---
+
+## Bug Fixes
 
 | # | Bug | Fix |
 |---|-----|-----|
@@ -210,5 +228,7 @@ Total:                            3224       Errors: 0
 | 9 | Line breaks not preserved | Used `<br>` between question parts |
 | 10 | V2 subcategories only worked at file start | Added V1/V2 processing anywhere in file |
 | 11 | Category/subcategory duplication when splitting XML | Added duplicate protection + file starts with last category |
-| 12 | {shortanswer_numcombo} not working | Moved before partial, added numbering + combinations |
-| 13 | {shortanswer_partial} not generating all variants | Replaced combinations with permutations (as in original) |
+| 12 | {numerical_numcombo} not working | Moved before partial, added numbering + combinations |
+| 13 | {numerical_partial} not generating all variants | Replaced combinations with permutations |
+| 14 | GUI "Select all" checkbox too large | Fixed to single row, fixed height 32px |
+| 15 | Missing feedback elements in NUMERICAL_TEMPLATE | Added correctfeedback, partiallycorrectfeedback, incorrectfeedback |
