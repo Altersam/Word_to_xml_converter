@@ -30,6 +30,30 @@
 
     <h2>История изменений</h2>
 
+    <!-- Task 24 -->
+    <div class="task">
+        <div class="task-header">
+            <span class="task-id">#24</span>
+            <span class="task-date">2026-04-09</span>
+            <span class="status status-done">Done</span>
+        </div>
+        <div class="task-title">XML splitting - ошибка "Reserved XML Name" при импорте в Moodle</div>
+        <div class="task-desc">
+            <strong>Проблема:</strong> При импорте частей XML в Moodle возникала ошибка "Reserved XML Name" на строке 25 - дублировалась XML декларация внутри файла.<br>
+            <strong>Решение:</strong>
+            <ul>
+                <li>Переписана функция split_xml_by_size в converter_gui.py</li>
+                <li>Использована текстовая обработка вместо lxml ElementTree</li>
+                <li>Каждая часть содержит одну XML декларацию в начале</li>
+                <li>Категории дублируются в начале каждой части</li>
+            </ul>
+        </div>
+        <div class="task-files">
+            <span class="file-tag">converter_gui.py</span>
+            <span class="file-tag">README.md</span>
+        </div>
+    </div>
+
     <!-- Task 23 -->
     <div class="task">
         <div class="task-header">
@@ -442,7 +466,7 @@
     </div>
 
     <h2>Итог</h2>
-    <p>Всего исправлено: <strong>23 задачи</strong></p>
+    <p>Всего исправлено: <strong>24 задачи</strong></p>
     <p>Файлы: <code>universal_moodle_converter_v3_stable.py</code>, <code>converter_gui.py</code>, <code>README.md</code>, <code>Шаблоны вопросов_new.docx</code></p>
 
 </body>

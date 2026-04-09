@@ -232,3 +232,4 @@ Total:                            3224       Errors: 0
 | 13 | {numerical_partial} not generating all variants | Replaced combinations with permutations |
 | 14 | GUI "Select all" checkbox too large | Fixed to single row, fixed height 32px |
 | 15 | Missing feedback elements in NUMERICAL_TEMPLATE | Added correctfeedback, partiallycorrectfeedback, incorrectfeedback |
+| 16 | XML splitting - duplicate XML declaration | Fixed: each part has single `<?xml>` and proper `</quiz>` closing |

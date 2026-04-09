@@ -282,66 +282,69 @@ class XMLValidator:
 # ============================================================
 
 def split_xml_by_size(xml_path: str, max_bytes: int = 1_000_000) -> List[str]:
+    """Разделяет XML файл на части до max_bytes.
+    
+    Каждая часть начинается с дубликата категорий.
+    """
+    import re
+    
     sz = os.path.getsize(xml_path)
     if sz <= max_bytes:
         return [xml_path]
 
-    tree = etree.parse(xml_path)
-    root = tree.getroot()
+    with open(xml_path, 'r', encoding='utf-8') as f:
+        content = f.read()
+
+    quiz_start = content.find('<quiz>')
+    quiz_end = content.rfind('</quiz>')
+    
+    xml_decl = content[:quiz_start]
+    inner = content[quiz_start + 6:quiz_end]
+    
+    # Извлекаем первые две категории для дублирования
+    category_matches = list(re.finditer(r'(<question type="category">.*?</question>)', inner, re.DOTALL))
+    categories = [m.group(1) for m in category_matches[:2]]
+    
+    # Все вопросы
+    all_items = list(re.finditer(r'(<question[^>]*>.*?</question>)', inner, re.DOTALL))
+
+    parts = []
+    current_part = ""
+    current_size = 0
+    part_num = 1
+
+    for match in all_items:
+        item = match.group(1)
+        
+        # Пропускаем категории (они уже сохранены)
+        if '<question type="category">' in item:
+            continue
+        
+        item_size = len(item.encode('utf-8'))
+        
+        if current_size + item_size > max_bytes and current_size > 0:
+            parts.append(current_part)
+            part_num += 1
+            current_part = item
+            current_size = item_size
+        else:
+            current_part += item
+            current_size += item_size
+
+    if current_part:
+        parts.append(current_part)
 
     base, ext = os.path.splitext(xml_path)
-    parts = []
+    result_parts = []
+    
+    for i, part_content in enumerate(parts, 1):
+        full_xml = f"{xml_decl}<quiz>{''.join(categories)}\n{part_content}</quiz>"
+        pp = f'{base}_part{i}{ext}'
+        with open(pp, 'w', encoding='utf-8') as out:
+            out.write(full_xml)
+        result_parts.append(pp)
 
-    cur = etree.Element('quiz')
-    cur_sz = len(etree.tostring(cur, encoding='utf-8', xml_declaration=True))
-    last_category = None
-    pn = 1
-
-    for ch in root:
-        # Пропускаем элементы без тега (например, комментарии)
-        if ch.tag is None:
-            continue
-            
-        qb = len(etree.tostring(ch, encoding='utf-8'))
-        
-        # Проверяем, не превысим ли лимит
-        if cur_sz + qb > max_bytes and len(cur) > 0:
-            # Нужно проверить: если текущий элемент - вопрос, 
-            # а не категория, то можно разделять
-            is_category = ch.get('type') == 'category'
-            
-            # Если это вопрос (не категория), то сохраняем текущий файл
-            # и создаём новый
-            if not is_category:
-                # Сохраняем текущую часть
-                pp = f'{base}_part{pn}{ext}'
-                etree.ElementTree(cur).write(pp, encoding='utf-8', xml_declaration=True)
-                parts.append(pp)
-                pn += 1
-                
-                # Начинаем новую часть с последней категорией
-                cur = etree.Element('quiz')
-                if last_category is not None:
-                    cur.append(deepcopy(last_category))
-                cur_sz = len(etree.tostring(cur, encoding='utf-8', xml_declaration=True))
-        
-        # Добавляем элемент
-        cur.append(ch)
-        
-        # Запоминаем категорию для следующего файла
-        if ch.get('type') == 'category':
-            last_category = ch
-            cur_sz = len(etree.tostring(cur, encoding='utf-8', xml_declaration=True))
-        else:
-            cur_sz += qb
-
-    # Сохраняем последнюю часть
-    if len(cur) > 0:
-        pp = f'{base}_part{pn}{ext}'
-        etree.ElementTree(cur).write(pp, encoding='utf-8', xml_declaration=True)
-        parts.append(pp)
-
-    return parts
+    return result_parts
 
 
 # ============================================================
