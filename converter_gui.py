@@ -563,8 +563,21 @@ class MainWindow(QMainWindow):
     def _fill_tree(self):
         self.tree.clear()
         marker_list = [''] + sorted(VALID_MARKERS)
-
+        
+        current_category = None
+        category_indices = []  # Индексы вопросов текущей категории
+        
         for idx, q in enumerate(self.questions):
+            # Проверяем смену категории (маркера блока)
+            if q.marker != current_category:
+                # Если была предыдущая категория с вопросами - добавляем её чекбокс перед новой
+                if category_indices and current_category is not None:
+                    self._add_category_separator(current_category, category_indices)
+                current_category = q.marker
+                category_indices = [idx]
+            else:
+                category_indices.append(idx)
+            
             # --- Родительский элемент (заголовок вопроса) ---
             item = QTreeWidgetItem()
             item.setCheckState(0, Qt.Checked)  # Галочка по умолчанию
@@ -656,6 +669,28 @@ class MainWindow(QMainWindow):
         self.tree.expandAll()
         # Свернём обратно, чтобы пользователь раскрывал вручную
         self.tree.collapseAll()
+        
+        # Добавляем последнюю категорию
+        if category_indices and current_category is not None:
+            self._add_category_separator(current_category, category_indices)
+    
+    def _add_category_separator(self, marker, indices):
+        """Добавляет разделитель категории с чекбоксом для выбора всех вопросов категории."""
+        desc = MARKER_DESCRIPTIONS.get(marker, marker) if marker else 'Без маркера'
+        label = f'✓ Выбрать все ({desc})'
+        
+        sep = QTreeWidgetItem()
+        sep.setText(1, '▸')
+        sep.setText(2, label)
+        sep.setCheckState(0, Qt.Checked)
+        sep.setData(0, Qt.UserRole, {'category': True, 'indices': indices})
+        
+        # Серый фон для разделителя
+        for c in range(7):
+            sep.setBackground(c, QColor(220, 220, 220))
+        sep.setForeground(2, QBrush(QColor(80, 80, 80)))
+        
+        self.tree.addTopLevelItem(sep)
 
     def _marker_changed(self, row, combo):
         mk = combo.currentData()
@@ -757,10 +792,33 @@ class MainWindow(QMainWindow):
     def _on_item_check_changed(self, item, column):
         if column == 0:
             idx = item.data(0, Qt.UserRole)
-            if idx is not None:
-                checked = item.checkState(0) == Qt.Checked
+            checked = item.checkState(0) == Qt.Checked
+            
+            # Проверяем: это категория или отдельный вопрос
+            if isinstance(idx, dict) and idx.get('category'):
+                # Это чекбокс категории - выбрать/снять все вопросы в ней
+                indices = idx.get('indices', [])
+                for q_idx in indices:
+                    if q_idx < len(self.questions):
+                        self.questions[q_idx].selected = checked
+                # Обновляем чекбоксы вопросов в дереве
+                self._refresh_question_checkboxes(indices)
+            elif idx is not None:
+                # Обычный вопрос
                 self.questions[idx].selected = checked
-                self._update_selected_count()
+            
+            self._update_selected_count()
+    
+    def _refresh_question_checkboxes(self, indices):
+        """Обновляет чекбоксы конкретных вопросов в дереве."""
+        for i in range(self.tree.topLevelItemCount()):
+            item = self.tree.topLevelItem(i)
+            if item:
+                item_idx = item.data(0, Qt.UserRole)
+                if item_idx is not None and not isinstance(item_idx, dict):
+                    if item_idx in indices:
+                        q = self.questions[item_idx]
+                        item.setCheckState(0, Qt.Checked if q.selected else Qt.Unchecked)
 
     def _toggle_select_all(self, state):
         checked = state == Qt.Checked

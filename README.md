@@ -233,3 +233,7 @@ Total:                            3224       Errors: 0
 | 14 | GUI "Select all" checkbox too large | Fixed to single row, fixed height 32px |
 | 15 | Missing feedback elements in NUMERICAL_TEMPLATE | Added correctfeedback, partiallycorrectfeedback, incorrectfeedback |
 | 16 | XML splitting - duplicate XML declaration | Fixed: each part has single `<?xml>` and proper `</quiz>` closing |
+| 17 | {numerical_numcombo} - answers not added to XML | Added missing `self.root.append(tree)` after return |
+| 18 | {numerical_numcombo} - wrong answer logic | Rewrote: takes answer from `+:` and generates all permutations of digits |
+| 19 | {numerical_numcombo} - question text split with `<br>` | Preserved original line breaks, keeps (1), (2), (3) intact |
+| 20 | Line breaks from Word not preserved in XML | Added `replace('\n', '<br>')` after processing |

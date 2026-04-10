@@ -735,6 +735,9 @@ class XMLGenerator:
                 all_answers_ordered.append((potential_answer, True))
                 question_text_parts = question_text_parts[:-1]
         
+        # Сохраняем оригинальный текст для numcombo (без <br>)
+        question_text_raw = '\n'.join(question_text_parts)
+        
         question_text = '<br>'.join(question_text_parts)
         question_text_with_header = full_question_text + ' ' + question_text
         question_text = ImageProcessor.process_text(question_text, self.image_data)
@@ -781,33 +784,33 @@ class XMLGenerator:
         
         # Проверяем numcombo РАНЬШЕ partial, чтобы маркер {numerical_numcombo} имел приоритет
         if use_numcombo:
-            # {numerical_numcombo}: нумерация вариантов + генерация комбинаций
-            # Создаём пронумерованный текст вопроса
-            numbered_parts = []
-            answer_positions = []  # [(позиция, текст, is_correct), ...]
-            pos = 1
+            # {numerical_numcombo}: ответ из +: разбивается на цифры и генерируются все перестановки
+            # Например: +: 123 -> ответы: 123, 132, 213, 231, 312, 321
             
+            answer_text_raw = ''
             for item in content:
                 item = item.strip()
-                if not item:
-                    continue
                 if item.startswith('+:'):
-                    answer_positions.append((pos, item.replace('+:', '').strip(), True))
-                    numbered_parts.append(f"{pos})" + item.replace('+:', '').strip())
-                    pos += 1
-                elif item.startswith('-:'):
-                    answer_positions.append((pos, item.replace('-:', '').strip(), False))
-                    numbered_parts.append(f"{pos})" + item.replace('-:', '').strip())
-                    pos += 1
-                elif not item.startswith('-'):
-                    cleaned = strip_service_markers(item)
-                    if cleaned:
-                        numbered_parts.append(cleaned)
+                    answer_text_raw = item.replace('+:', '').strip()
+                    break
             
-            # Обновляем question_text с нумерацией
-            question_text = '<br>'.join(numbered_parts)
-            question_text = ImageProcessor.process_text(question_text, self.image_data)
+            answer_digits = [c for c in answer_text_raw if c.isdigit()]
+            
+            if len(answer_digits) == 1:
+                ans_elem = etree.SubElement(tree, 'answer')
+                ans_elem.set('fraction', '100')
+                ans_elem.set('format', 'moodle_auto_format')
+                etree.SubElement(ans_elem, 'text').text = answer_digits[0]
+            elif len(answer_digits) > 1:
+                for perm in itertools.permutations(answer_digits):
+                    ans_elem = etree.SubElement(tree, 'answer')
+                    ans_elem.set('fraction', '100')
+                    ans_elem.set('format', 'moodle_auto_format')
+                    etree.SubElement(ans_elem, 'text').text = ''.join(perm)
+            
+            question_text = ImageProcessor.process_text(question_text_raw, self.image_data)
             question_text = FormulaProcessor.tex_to_latex(question_text)
+            question_text = question_text.replace('\n', '<br>')  # Сохраняем переносы строк
             
             qt_elem = tree.find('questiontext')
             if '_IMAGE_' in question_text:
@@ -820,26 +823,12 @@ class XMLGenerator:
                 question_html = '<p>' + remove_service_markers(question_text) + '</p>'
                 qt_elem.find('text').text = etree.CDATA(question_html)
             
-            # Генерируем ответы: позиции правильных ответов -> комбинации
-            correct_positions = [p for p, t, c in answer_positions if c]
+            tree.find('.//correctfeedback/text').text = 'Ваш ответ верный.'
+            tree.find('.//partiallycorrectfeedback/text').text = 'Ваш ответ частично правильный.'
+            tree.find('.//incorrectfeedback/text').text = 'Ваш ответ неправильный.'
             
-            if len(correct_positions) >= 1:
-                if len(correct_positions) == 1:
-                    # Один правильный ответ - просто цифра
-                    for p, t, c in answer_positions:
-                        if c:
-                            ans_elem = etree.SubElement(tree, 'answer')
-                            ans_elem.set('fraction', '100')
-                            ans_elem.set('format', 'moodle_auto_format')
-                            etree.SubElement(ans_elem, 'text').text = str(p)
-                else:
-                    # Несколько правильных ответов - все перестановки
-                    perms = itertools.permutations(sorted(correct_positions))
-                    for perm in perms:
-                        ans_elem = etree.SubElement(tree, 'answer')
-                        ans_elem.set('fraction', '100')
-                        ans_elem.set('format', 'moodle_auto_format')
-                        etree.SubElement(ans_elem, 'text').text = ''.join(map(str, perm))
+            self.root.append(tree)
+            self.question_count += 1
             return
         elif use_partial:
             # {numerical_partial}: нумерация + partial scoring (100/50/0)
@@ -867,31 +856,32 @@ class XMLGenerator:
             
             # Обновляем question_text с нумерацией
             question_text = '<br>'.join(numbered_parts)
-            question_text = ImageProcessor.process_text(question_text, self.image_data)
-            question_text = FormulaProcessor.tex_to_latex(question_text)
-            
-            qt_elem = tree.find('questiontext')
-            if '_IMAGE_' in question_text:
-                quest_data = get_image(question_text)
-                qt_elem.find('text').text = etree.CDATA('<p>' + remove_service_markers(quest_data[0].replace('_IMAGE_', '')) + '</p>')
-                for img_name, img_data in quest_data[1]:
-                    img_elem = etree.SubElement(qt_elem, 'file', name=img_name, path='/', encoding='base64')
-                    img_elem.text = img_data.replace('_IMAGE_', '')
-            else:
-                question_html = '<p>' + remove_service_markers(question_text) + '</p>'
-                qt_elem.find('text').text = etree.CDATA(question_html)
-            
-            # Генерируем ответы с partial scoring
-            # Преобразуем answer_positions в формат [(текст, True/False), ...]
-            answers_for_partial = [(text, is_correct) for pos, text, is_correct in answer_positions]
-            partial_results = self._generate_permutations_with_partial_scoring(
-                answers_for_partial, question_text_with_header
-            )
-            for ans_text, fraction in partial_results:
-                ans_elem = etree.SubElement(tree, 'answer')
-                ans_elem.set('fraction', str(fraction))
-                ans_elem.set('format', 'moodle_auto_format')
-                etree.SubElement(ans_elem, 'text').text = ans_text
+        question_text = ImageProcessor.process_text(question_text, self.image_data)
+        question_text = FormulaProcessor.tex_to_latex(question_text)
+        question_text = question_text.replace('\n', '<br>')  # Сохраняем переносы строк
+        
+        qt_elem = tree.find('questiontext')
+        if '_IMAGE_' in question_text:
+            quest_data = get_image(question_text)
+            qt_elem.find('text').text = etree.CDATA('<p>' + remove_service_markers(quest_data[0].replace('_IMAGE_', '')) + '</p>')
+            for img_name, img_data in quest_data[1]:
+                img_elem = etree.SubElement(qt_elem, 'file', name=img_name, path='/', encoding='base64')
+                img_elem.text = img_data.replace('_IMAGE_', '')
+        else:
+            question_html = '<p>' + remove_service_markers(question_text) + '</p>'
+            qt_elem.find('text').text = etree.CDATA(question_html)
+        
+        # Генерируем ответы с partial scoring
+        # Преобразуем answer_positions в формат [(текст, True/False), ...]
+        answers_for_partial = [(text, is_correct) for pos, text, is_correct in answer_positions]
+        partial_results = self._generate_permutations_with_partial_scoring(
+            answers_for_partial, question_text_with_header
+        )
+        for ans_text, fraction in partial_results:
+            ans_elem = etree.SubElement(tree, 'answer')
+            ans_elem.set('fraction', str(fraction))
+            ans_elem.set('format', 'moodle_auto_format')
+            etree.SubElement(ans_elem, 'text').text = ans_text
         else:
             # Стандартная логика / {shortanswer_phrase} / fallback
             for answer_text in correct_answers:
@@ -1421,7 +1411,7 @@ class MoodleConverter:
             last_question_name = ""
             last_grade = 1.0
             current_marker = ""  # текущий маркер типа вопроса
-            question_index = 0  # счётчик вопросов для фильтрации
+            self._question_index = 0  # счётчик вопросов для фильтрации
             
             for line in lines:
                 line = unicodedata.normalize('NFC', line.strip())
@@ -1586,11 +1576,18 @@ class MoodleConverter:
     
     def _save_question(self, content: List[str], name: str, grade: float, marker: str = ''):
         """Сохраняет вопрос в зависимости от его типа."""
+        logger.info(f"Попытка сохранить вопрос: {name[:50]}... (индекс: {self._question_index})")
+        
         # Проверяем, нужно ли сохранить этот вопрос
         if self.selected_indices is not None:
             idx = self._question_index - 1
+            logger.info(f"  Проверка фильтра: idx={idx}")
             if idx not in self.selected_indices:
+                logger.info(f"  -> ПРОПУЩЕН (не в списке выбранных)")
                 return  # Пропускаем невыбранный вопрос
+            logger.info(f"  -> ВЫБРАН")
+        else:
+            logger.info(f"  -> Нет фильтрации")
         
         # Используем маркер из _marker_overrides если установлен из GUI
         if name in self._marker_overrides:
@@ -1598,6 +1595,7 @@ class MoodleConverter:
         
         try:
             q_type = QuestionTypeDetector.detect(content, self.current_subject, marker)
+            logger.info(f"  Определён тип: {q_type}")
             
             if q_type == 'multichoice_one':
                 self.generator.create_multichoice(name, content, grade, single=True, penalty_wrong=0)
@@ -1608,6 +1606,7 @@ class MoodleConverter:
             elif q_type == 'numerical_partial':
                 self.generator.create_shortanswer(name, content, grade, subject='numerical_partial')
             elif q_type == 'numerical_numcombo':
+                logger.info(f"  -> вызов create_shortanswer с numerical_numcombo")
                 self.generator.create_shortanswer(name, content, grade, subject='numerical_numcombo')
             elif q_type == 'numerical':
                 self.generator.create_shortanswer_numerical(name, content, grade)
@@ -1629,6 +1628,8 @@ class MoodleConverter:
             else:
                 self.generator.create_shortanswer(name, content, grade)
                 
+            logger.info(f"  -> Вопрос добавлен")
+            
         except Exception as e:
             error_msg = f"Ошибка при сохранении вопроса '{name}': {e}"
             logger.error(error_msg)

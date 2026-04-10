@@ -30,6 +30,49 @@
 
     <h2>История изменений</h2>
 
+    <!-- Task 25 -->
+    <div class="task">
+        <div class="task-header">
+            <span class="task-id">#25</span>
+            <span class="task-date">2026-04-10</span>
+            <span class="status status-done">Done</span>
+        </div>
+        <div class="task-title">Исправление {numerical_numcombo} - 3 бага</div>
+        <div class="task-desc">
+            <strong>Проблема 1:</strong> Ответы не добавлялись в XML (стоял return перед self.root.append).<br>
+            <strong>Проблема 2:</strong> Логика ответов была как в numerical_partial, а нужно из +: брать цифры и переставлять.<br>
+            <strong>Проблема 3:</strong> Текст вопроса разбивался &lt;br&gt;, маркеры (1), (2), (3) становились 1), 2), 3).<br>
+            <strong>Решение:</strong>
+            <ul>
+                <li>Убран return перед добавлением в XML</li>
+                <li>Переписана логика: берём ответ из +:, разбиваем на цифры, генерируем все перестановки (123→123,132,213,231,312,321)</li>
+                <li>Сохранён оригинальный question_text_raw с переносами строк вместо &lt;br&gt;</li>
+            </ul>
+        </div>
+        <div class="task-files">
+            <span class="file-tag">universal_moodle_converter_v3_stable.py</span>
+            <span class="file-tag">README.md</span>
+        </div>
+    </div>
+
+    <!-- Task 26 -->
+    <div class="task">
+        <div class="task-header">
+            <span class="task-id">#26</span>
+            <span class="task-date">2026-04-10</span>
+            <span class="status status-done">Done</span>
+        </div>
+        <div class="task-title">Сохранение переносов строк из Word в XML</div>
+        <div class="task-desc">
+            <strong>Проблема:</strong> Переносы строк из Word не сохранялись в XML.<br>
+            <strong>Решение:</strong> Добавлено `question_text.replace('\n', '<br>')` после обработки формул и картинок - для всех типов вопросов.
+        </div>
+        <div class="task-files">
+            <span class="file-tag">universal_moodle_converter_v3_stable.py</span>
+            <span class="file-tag">README.md</span>
+        </div>
+    </div>
+
     <!-- Task 24 -->
     <div class="task">
         <div class="task-header">
@@ -466,7 +509,7 @@
     </div>
 
     <h2>Итог</h2>
-    <p>Всего исправлено: <strong>24 задачи</strong></p>
+    <p>Всего исправлено: <strong>26 задач</strong></p>
     <p>Файлы: <code>universal_moodle_converter_v3_stable.py</code>, <code>converter_gui.py</code>, <code>README.md</code>, <code>Шаблоны вопросов_new.docx</code></p>
 
 </body>
