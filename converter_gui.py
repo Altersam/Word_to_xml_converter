@@ -902,13 +902,13 @@ class MainWindow(QMainWindow):
             
             xml_str = etree.tostring(gen.root, pretty_print=True, encoding='unicode')
             
-            html = self._xml_to_moodle_preview(q.name, q.content, marker, xml_str)
+            html = self._xml_to_moodle_preview(q.name, q.content, marker, xml_str, q.marker)
             self.preview_text.setHtml(html)
             
         except Exception as e:
             self.preview_text.setHtml(f'<div style="color:red; padding:10px;">Ошибка: {str(e)}</div>')
     
-    def _xml_to_moodle_preview(self, name, content, marker, xml_str):
+    def _xml_to_moodle_preview(self, name, content, marker, xml_str, original_marker=''):
         tree = etree.fromstring(xml_str)
         
         q_elem = tree.find('.//question')
@@ -970,6 +970,18 @@ class MainWindow(QMainWindow):
             
             selectopts = q_elem.findall('.//selectoption')
             
+            answer_key = ''
+            for line in content:
+                line = line.strip()
+                if re.match(r'^\+:\s*[A-DА-Г]+$', line):
+                    answer_key = re.sub(r'^\+:\s*', '', line)
+                elif re.match(r'^Ответ:\s*[A-DА-Г\s]+$', line, re.IGNORECASE):
+                    answer_key = re.sub(r'^Ответ:\s*', '', line, flags=re.IGNORECASE).replace(' ', '')
+                elif re.match(r'^ОТВЕТ:\s*[A-DА-Г]+$', line):
+                    answer_key = re.sub(r'^ОТВЕТ:\s*', '', line)
+            
+            has_cyrillic = any('А' <= c <= 'Я' or 'а' <= c <= 'я' for c in answer_key)
+            
             html = f'<div style="font-family:Segoe UI; max-width:100%;">'
             html += f'<h3 style="color:#333;">{name}</h3>'
             html += f'<p style="color:#555;">{qtext}</p>'
@@ -980,12 +992,22 @@ class MainWindow(QMainWindow):
                 group = opt.get('group', '1')
                 if group not in groups:
                     groups[group] = []
-                groups[group].append(text)
+                groups[group].append((text, opt))
             
-            for g, opts in sorted(groups.items()):
-                html += f'<div style="margin:10px 0;"><b>Варианты (группа {g}):</b><br>'
-                for o in opts:
-                    html += f'<span style="display:inline-block; margin:2px 5px; padding:2px 8px; background:#e0e0e0; border-radius:3px;">{o}</span>'
+            for g_idx, (g, opts) in enumerate(sorted(groups.items())):
+                correct_letter = answer_key[g_idx] if g_idx < len(answer_key) else ''
+                
+                html += f'<div style="margin:10px 0;"><b>Группа {g}:</b> (правильный: {correct_letter})<br>'
+                for text, opt_elem in opts:
+                    letter_match = re.match(r'^([A-DА-Г])', text)
+                    letter = letter_match.group(1) if letter_match else ''
+                    
+                    is_correct = (has_cyrillic and letter == correct_letter) or (not has_cyrillic and letter.upper() == correct_letter.upper())
+                    
+                    if is_correct:
+                        html += f'<span style="display:inline-block; margin:2px 5px; padding:2px 8px; background:#c8e6c9; border-radius:3px; border:1px solid #4caf50;">{text} ✓</span>'
+                    else:
+                        html += f'<span style="display:inline-block; margin:2px 5px; padding:2px 8px; background:#e0e0e0; border-radius:3px;">{text}</span>'
                 html += '</div>'
             
             html += '</div>'
