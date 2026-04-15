@@ -8,7 +8,7 @@ if %errorlevel% neq 0 (
     python -m pip install --user PyQt5 lxml python-docx docxlatex
 )
 
-python "%~dp0converter_gui.py"
+pythonw "%~dp0converter_gui.py"
 if %errorlevel% neq 0 (
     echo.
     echo [!] Error. Check Python and dependencies:

@@ -257,3 +257,4 @@ Total:                            3224       Errors: 0
 | 30 | GUI - matching now works same as match | Added 'match' as alias for 'matching' |
 | 31 | GUI - ddmatch drag-drop preview | Left items + shuffled right targets with styling |
 | 32 | GUI - gapselect dropdowns inline in text | Replaced [[N]] with select elements at correct positions |
+| 33 | GUI - images not showing in preview | Added image_data extraction and passing to XMLGenerator |

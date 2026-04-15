@@ -419,24 +419,9 @@ class QuestionTypeDetector:
             # "Расположите фразы..." - matching с нумерованными элементами
             has_matching = True
         elif has_left_markers and has_right_markers:
-            left_items = [re.sub(r'^L\d+:', '', item).strip() for item in content if re.match(r'^L\d+:', item)]
-            right_items = [re.sub(r'^R\d+:', '', item).strip() for item in content if re.match(r'^R\d+:', item)]
-            
-            if left_items and right_items:
-                avg_l_len = sum(len(t) for t in left_items) / len(left_items)
-                avg_r_len = sum(len(t) for t in right_items) / len(right_items)
-                
-                # Если инструкция содержит "заголовок" или L в 5+ раз длиннее R - matching
-                # Иначе ddmatch
-                if instruction_has_headline:
-                    has_matching = True
-                elif instruction_has_type:
-                    has_ddmatch = True
-                elif avg_r_len > 0 and avg_l_len / avg_r_len > 5:
-                    # Только при очень большом различии (>5x) считаем matching
-                    has_matching = True
-                else:
-                    has_ddmatch = True
+            # L + R маркеры = matching (соотношение L/R)
+            has_matching = True
+            has_ddmatch = False
         
         # Определение типа по приоритету
         if has_cloze:
@@ -1053,13 +1038,24 @@ class XMLGenerator:
         
         for item in content:
             if '->' in item:
-                # Пропускаем явные пары
                 pass
             elif '=>' in item:
                 pass
             elif re.match(r'^L\d+:', item):
                 num = re.match(r'^L(\d+):', item).group(1)
-                left_items[num] = re.sub(r'^L\d+:', '', item).strip()
+                rest = re.sub(r'^L\d+:', '', item).strip()
+                # Проверяем, есть ли R на той же строке
+                r_match = re.search(r'\s+R(\d+):', rest)
+                if r_match:
+                    l_text = rest[:r_match.start()].strip()
+                    r_num = r_match.group(1)
+                    r_text = rest[r_match.end():].strip()
+                    left_items[num] = l_text
+                    if r_num not in right_items:
+                        right_items[r_num] = []
+                    right_items[r_num].append(r_text)
+                else:
+                    left_items[num] = rest
             elif re.match(r'^R\d+:', item):
                 num = re.match(r'^R(\d+):', item).group(1)
                 text = re.sub(r'^R\d+:', '', item).strip()
