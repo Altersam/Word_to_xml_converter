@@ -880,29 +880,14 @@ class XMLGenerator:
             ans_elem.set('fraction', str(fraction))
             ans_elem.set('format', 'moodle_auto_format')
             etree.SubElement(ans_elem, 'text').text = ans_text
-        else:
-            # Стандартная логика / {shortanswer_phrase} / fallback
-            for answer_text in correct_answers:
-                all_answers = self._generate_permutations(answer_text, question_text_with_header)
-                for ans in all_answers:
-                    ans_elem = etree.SubElement(tree, 'answer')
-                    ans_elem.set('fraction', '100')
-                    ans_elem.set('format', 'moodle_auto_format')
-                    etree.SubElement(ans_elem, 'text').text = ans
-                
-                # Для одиночных ответов (без перестановок) — добавляем вариант с . / ,
-                if len(all_answers) == 1:
-                    ans = all_answers[0]
-                    variant = ans.replace(',', '.') if ',' in ans else ans.replace('.', ',')
-                    if variant != ans:
-                        ans_elem2 = etree.SubElement(tree, 'answer')
-                        ans_elem2.set('fraction', '100')
-                        ans_elem2.set('format', 'moodle_auto_format')
-                        etree.SubElement(ans_elem2, 'text').text = variant
         
         tree.find('.//correctfeedback/text').text = 'Ваш ответ верный.'
         tree.find('.//partiallycorrectfeedback/text').text = 'Ваш ответ частично правильный.'
         tree.find('.//incorrectfeedback/text').text = 'Ваш ответ неправильный.'
+        
+        self.root.append(tree)
+        self.question_count += 1
+        return
         
         self.root.append(tree)
         self.question_count += 1
