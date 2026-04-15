@@ -869,17 +869,36 @@ class XMLGenerator:
             question_html = '<p>' + remove_service_markers(question_text) + '</p>'
             qt_elem.find('text').text = etree.CDATA(question_html)
         
-        # Генерируем ответы с partial scoring
-        # Преобразуем answer_positions в формат [(текст, True/False), ...]
-        answers_for_partial = [(text, is_correct) for pos, text, is_correct in answer_positions]
-        partial_results = self._generate_permutations_with_partial_scoring(
-            answers_for_partial, question_text_with_header
-        )
-        for ans_text, fraction in partial_results:
-            ans_elem = etree.SubElement(tree, 'answer')
-            ans_elem.set('fraction', str(fraction))
-            ans_elem.set('format', 'moodle_auto_format')
-            etree.SubElement(ans_elem, 'text').text = ans_text
+        for ans_text, is_right in answers:
+            # numerical_partial: partial scoring
+            answers_for_partial = [(text, is_correct) for pos, text, is_correct in answer_positions]
+            partial_results = self._generate_permutations_with_partial_scoring(
+                answers_for_partial, question_text_with_header
+            )
+            for ans_text, fraction in partial_results:
+                ans_elem = etree.SubElement(tree, 'answer')
+                ans_elem.set('fraction', str(fraction))
+                ans_elem.set('format', 'moodle_auto_format')
+                etree.SubElement(ans_elem, 'text').text = ans_text
+        elif correct_answers:
+            # Стандартная логика / {shortanswer_phrase} / fallback
+            for answer_text in correct_answers:
+                all_answers = self._generate_permutations(answer_text, question_text_with_header)
+                for ans in all_answers:
+                    ans_elem = etree.SubElement(tree, 'answer')
+                    ans_elem.set('fraction', '100')
+                    ans_elem.set('format', 'moodle_auto_format')
+                    etree.SubElement(ans_elem, 'text').text = ans
+                
+                # Для одиночных ответов (без перестановок) — добавляем вариант с . / ,
+                if len(all_answers) == 1:
+                    ans = all_answers[0]
+                    variant = ans.replace(',', '.') if ',' in ans else ans.replace('.', ',')
+                    if variant != ans:
+                        ans_elem2 = etree.SubElement(tree, 'answer')
+                        ans_elem2.set('fraction', '100')
+                        ans_elem2.set('format', 'moodle_auto_format')
+                        etree.SubElement(ans_elem2, 'text').text = variant
         
         tree.find('.//correctfeedback/text').text = 'Ваш ответ верный.'
         tree.find('.//partiallycorrectfeedback/text').text = 'Ваш ответ частично правильный.'
@@ -888,9 +907,6 @@ class XMLGenerator:
         self.root.append(tree)
         self.question_count += 1
         return
-        
-        self.root.append(tree)
-        self.question_count += 1
     
     def create_multichoice(self, name: str, content: List[str], grade: float = 1.0,
                            single: bool = None, penalty_wrong: int = 0):
