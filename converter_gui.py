@@ -1154,7 +1154,9 @@ class MainWindow(QMainWindow):
             
             def replace_gap(match):
                 pos = int(match.group(1))
-                g_idx = (pos - 2) // 4
+                group_num = (pos - 2) // 4 + 1
+                
+                g_idx = group_num - 1
                 if g_idx >= len(sorted_groups):
                     return match.group(0)
                 
