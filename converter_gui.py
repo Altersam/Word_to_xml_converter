@@ -456,9 +456,13 @@ class MainWindow(QMainWindow):
         gl.addLayout(r3)
         lay.addWidget(grp)
 
-        # --- Центр: дерево + лог ---
-        splitter = QSplitter(Qt.Vertical)
-        splitter.setHandleWidth(1)
+        # --- Центр: дерево (50%) + предпросмотр Moodle (50%) ---
+        h_splitter = QSplitter(Qt.Horizontal)
+        h_splitter.setHandleWidth(1)
+
+        # Левая панель: дерево вопросов + лог
+        v_splitter = QSplitter(Qt.Vertical)
+        v_splitter.setHandleWidth(1)
 
         # Компактная панель с чекбоксом и счётчиком (в одну строку)
         header_widget = QWidget()
@@ -478,7 +482,7 @@ class MainWindow(QMainWindow):
         
         header_widget.setStyleSheet('background: #f0f0f0; border-bottom: 1px solid #ccc;')
         header_widget.setFixedHeight(32)
-        splitter.addWidget(header_widget)
+        v_splitter.addWidget(header_widget)
 
         self.tree = QTreeWidget()
         self.tree.setHeaderLabels(['✓', '#', 'Имя / Содержимое', 'Маркер', 'Тип', 'Балл', 'Ошибки'])
@@ -503,16 +507,32 @@ class MainWindow(QMainWindow):
         self.tree.setAnimated(True)
         self.tree.setFont(QFont('Segoe UI', 9))
         self.tree.itemChanged.connect(self._on_item_check_changed)
+        self.tree.itemClicked.connect(self._on_tree_item_clicked)
         
-        splitter.addWidget(self.tree)
+        v_splitter.addWidget(self.tree)
 
         self.log_text = QTextEdit()
         self.log_text.setReadOnly(True)
         self.log_text.setMaximumHeight(200)
         self.log_text.setFont(QFont('Consolas', 9))
-        splitter.addWidget(self.log_text)
-        splitter.setSizes([550, 200])
-        lay.addWidget(splitter, 1)
+        v_splitter.addWidget(self.log_text)
+        v_splitter.setSizes([550, 200])
+        
+        # Правая панель: предпросмотр Moodle
+        preview_group = QGroupBox('Предпросмотр Moodle')
+        preview_layout = QVBoxLayout(preview_group)
+        
+        self.preview_text = QTextEdit()
+        self.preview_text.setReadOnly(True)
+        self.preview_text.setFont(QFont('Segoe UI', 10))
+        self.preview_text.setStyleSheet('background: #fafafa; border: 1px solid #ccc;')
+        preview_layout.addWidget(self.preview_text)
+        
+        h_splitter.addWidget(v_splitter)
+        h_splitter.addWidget(preview_group)
+        h_splitter.setSizes([500, 500])
+        
+        lay.addWidget(h_splitter, 1)
 
         # --- Низ ---
         bot = QHBoxLayout()
@@ -835,6 +855,177 @@ class MainWindow(QMainWindow):
         count = sum(1 for q in self.questions if getattr(q, 'selected', True))
         self.lbl_selected.setText(f'Выбрано: {count} / {len(self.questions)}')
         self.status_label.setText(f'Выбрано вопросов: {count} / {len(self.questions)}')
+
+    def _on_tree_item_clicked(self, item, column):
+        idx = item.data(0, Qt.UserRole)
+        if idx is not None and not isinstance(idx, dict):
+            if idx < len(self.questions):
+                self._update_preview(idx)
+    
+    def _update_preview(self, q_idx):
+        q = self.questions[q_idx]
+        
+        if q.errors:
+            self.preview_text.setHtml(f'<div style="color:red; padding:10px;"><b>Ошибки в вопросе:</b><br>{ "<br>".join(q.errors) }</div>')
+            return
+        
+        try:
+            from universal_moodle_converter_v3_stable import XMLGenerator
+            
+            gen = XMLGenerator()
+            
+            marker = q.marker
+            if not marker:
+                from universal_moodle_converter_v3_stable import QuestionTypeDetector
+                marker = QuestionTypeDetector.detect(q.content, '', marker)
+            
+            grade = q.grade if q.grade else 1.0
+            
+            if marker == 'multichoice_one':
+                gen.create_multichoice(q.name, q.content, grade, single=True, penalty_wrong=1.0)
+            elif marker == 'multichoice_many':
+                gen.create_multichoice(q.name, q.content, grade, single=False, penalty_wrong=1.0)
+            elif marker == 'matching':
+                gen.create_matching(q.name, q.content, grade)
+            elif marker == 'ddmatch':
+                gen.create_ddmatch(q.name, q.content, grade)
+            elif marker == 'gapselect':
+                gen.create_gapselect(q.name, q.content, grade)
+            elif marker == 'cloze':
+                gen.create_cloze(q.name, q.content, grade)
+            elif marker in ('numerical_partial', 'numerical_numcombo'):
+                gen.create_numerical(q.name, q.content, grade)
+            elif marker == 'shortanswer_phrase':
+                gen.create_shortanswer(q.name, q.content, grade)
+            else:
+                gen.create_multichoice(q.name, q.content, grade, single=True, penalty_wrong=1.0)
+            
+            xml_str = etree.tostring(gen.root, pretty_print=True, encoding='unicode')
+            
+            html = self._xml_to_moodle_preview(q.name, q.content, marker, xml_str)
+            self.preview_text.setHtml(html)
+            
+        except Exception as e:
+            self.preview_text.setHtml(f'<div style="color:red; padding:10px;">Ошибка: {str(e)}</div>')
+    
+    def _xml_to_moodle_preview(self, name, content, marker, xml_str):
+        tree = etree.fromstring(xml_str)
+        
+        q_elem = tree.find('.//question')
+        if q_elem is None:
+            return '<div style="color:red;">XML не содержит вопросов</div>'
+        
+        qtype = q_elem.get('type', '')
+        
+        if qtype == 'multichoice':
+            single = q_elem.find('.//single')
+            single_val = single.text if single is not None else 'true'
+            is_single = single_val == 'true'
+            
+            qt = q_elem.find('.//questiontext')
+            qtext = ''.join(qt.itertext()) if qt is not None else ''
+            
+            answers = q_elem.findall('.//answer')
+            
+            html = f'<div style="font-family:Segoe UI; max-width:100%;">'
+            html += f'<h3 style="color:#333;">{name}</h3>'
+            html += f'<p style="color:#555;">{qtext}</p>'
+            html += '<div style="margin:10px 0 20px 20px;">'
+            
+            for ans in answers:
+                fraction = ans.get('fraction', '0')
+                ans_text = ''.join(ans.itertext())
+                
+                if fraction == '100':
+                    html += f'<div style="color:green; margin:4px 0;">● {ans_text}</div>'
+                elif fraction == '50':
+                    html += f'<div style="color:#c90;">● {ans_text} (50%)</div>'
+                else:
+                    html += f'<div style="color:#999; margin:4px 0;">○ {ans_text}</div>'
+            
+            html += '</div></div>'
+            
+        elif qtype == 'matching':
+            qt = q_elem.find('.//questiontext')
+            qtext = ''.join(qt.itertext()) if qt is not None else ''
+            
+            subqs = q_elem.findall('.//subquestion')
+            
+            html = f'<div style="font-family:Segoe UI; max-width:100%;">'
+            html += f'<h3 style="color:#333;">{name}</h3>'
+            html += f'<p style="color:#555;">{qtext}</p>'
+            
+            for sq in subqs:
+                text = ''.join(sq.find('text').itertext()) if sq.find('text') is not None else ''
+                ans_text = ''.join(sq.find('.//answer/text').itertext()) if sq.find('.//answer') is not None else ''
+                html += f'<div style="margin:5px 0; padding:5px; background:#f5f5f5; border-radius:4px;">'
+                html += f'<b>{text}</b> → <span style="color:green;">{ans_text}</span>'
+                html += '</div>'
+            
+            html += '</div>'
+            
+        elif qtype == 'gapselect':
+            qt = q_elem.find('.//questiontext')
+            qtext = ''.join(qt.itertext()) if qt is not None else ''
+            
+            selectopts = q_elem.findall('.//selectoption')
+            
+            html = f'<div style="font-family:Segoe UI; max-width:100%;">'
+            html += f'<h3 style="color:#333;">{name}</h3>'
+            html += f'<p style="color:#555;">{qtext}</p>'
+            
+            groups = {}
+            for opt in selectopts:
+                text = ''.join(opt.find('text').itertext()).strip()
+                group = opt.get('group', '1')
+                if group not in groups:
+                    groups[group] = []
+                groups[group].append(text)
+            
+            for g, opts in sorted(groups.items()):
+                html += f'<div style="margin:10px 0;"><b>Варианты (группа {g}):</b><br>'
+                for o in opts:
+                    html += f'<span style="display:inline-block; margin:2px 5px; padding:2px 8px; background:#e0e0e0; border-radius:3px;">{o}</span>'
+                html += '</div>'
+            
+            html += '</div>'
+            
+        elif qtype == 'cloze':
+            qt = q_elem.find('.//questiontext')
+            qtext = ''.join(qt.itertext()) if qt is not None else ''
+            
+            html = f'<div style="font-family:Segoe UI; max-width:100%;">'
+            html += f'<h3 style="color:#333;">{name}</h3>'
+            html += f'<p style="color:#555; font-style:italic;">{qtext}</p>'
+            html += '</div>'
+            
+        elif qtype in ('numerical', 'shortanswer'):
+            qt = q_elem.find('.//questiontext')
+            qtext = ''.join(qt.itertext()) if qt is not None else ''
+            
+            answers = q_elem.findall('.//answer')
+            
+            html = f'<div style="font-family:Segoe UI; max-width:100%;">'
+            html += f'<h3 style="color:#333;">{name}</h3>'
+            html += f'<p style="color:#555;">{qtext}</p>'
+            html += '<div style="margin:10px 0;">'
+            
+            for ans in answers:
+                fraction = ans.get('fraction', '0')
+                ans_text = ''.join(ans.itertext())
+                
+                if fraction == '100':
+                    html += f'<div style="color:green;">Правильный ответ: {ans_text}</div>'
+                else:
+                    html += f'<div style="color:#999;">{ans_text}</div>'
+            
+            html += '<input type="text" style="width:200px; padding:5px; border:1px solid #ccc; border-radius:4px;" placeholder="Ваш ответ..." disabled>'
+            html += '</div></div>'
+        
+        else:
+            html = f'<div style="font-family:Segoe UI;">Тип: {qtype} — предпросмотр недоступен</div>'
+        
+        return html
 
 
 # ============================================================

@@ -99,7 +99,11 @@ The converter recognizes 7 formats of question beginning:
 3. **Question selection** — checkboxes to select which questions to convert
    - "Выделить все" checkbox to select/deselect all
    - Counter shows "Выбрано: X / Y"
-4. **Preview** (QTreeWidget):
+4. **Question tree (50% width) + Moodle preview (50% width)**
+   - Left: QTreeWidget with all questions, expandable content
+   - Right: Real-time preview of how question will look in Moodle
+   - Click any question to see generated XML rendered as HTML
+5. **Preview** (QTreeWidget):
    - List of all questions with expandable content
    - Clicking a question reveals: text (S:), correct (+:, green), incorrect (-:, red), L/R pairs
    - Marker combobox — can change marker for block
