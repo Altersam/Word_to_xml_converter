@@ -1011,6 +1011,9 @@ class MainWindow(QMainWindow):
             display: inline-block;
             min-width: 100px;
         }
+        .matching-table { border-collapse: collapse; width: 100%; }
+        .matching-table td { vertical-align: middle; }
+        .matching-table select { padding: 5px 8px; border: 1px solid #ccc; border-radius: 4px; background: #fff; font-size: 13px; min-width: 150px; }
         
         .cloze .gap {
             background: #fff9e6;
@@ -1090,19 +1093,36 @@ class MainWindow(QMainWindow):
             
             subqs = q_elem.findall('.//subquestion')
             
-            html += f'<div class="que matching" style="border-left:4px solid #f39c12;">'
-            html += f'<div class="formulation"><h3>{name}</h3>'
-            html += f'<div class="qtext">{qtext}</div></div>'
-            html += '<div class="ablock">'
-            
+            all_answers = []
             for sq in subqs:
                 text = ''.join(sq.find('text').itertext()) if sq.find('text') is not None else ''
                 ans_text = ''.join(sq.find('.//answer/text').itertext()) if sq.find('.//answer') is not None else ''
-                html += f'<div style="margin:8px 0;">'
-                html += f'<span class="drop">{text}</span> → <span class="draggable">{ans_text}</span>'
-                html += '</div>'
+                all_answers.append((text, ans_text))
             
-            html += '</div></div>'
+            distractors = []
+            for ans in q_elem.findall('.//answer'):
+                text = ''.join(ans.find('text').itertext()) if ans.find('text') is not None else ''
+                if text and not any(t[1] == text for t in all_answers):
+                    distractors.append(text)
+            
+            html += f'<div class="que matching" style="border-left:4px solid #f39c12;">'
+            html += f'<div class="formulation"><h3>{name}</h3>'
+            html += f'<div class="qtext">{qtext}</div></div>'
+            html += '<div class="ablock"><table class="matching-table">'
+            
+            for idx, (text, correct_ans) in enumerate(all_answers):
+                all_opts = [correct_ans] + [d for d in distractors if d != correct_ans]
+                
+                html += f'<tr><td style="padding:5px;"><b>{text}</b></td><td style="padding:5px;">'
+                html += f'<select><option>-- выберите --</option>'
+                for opt in all_opts:
+                    if opt == correct_ans:
+                        html += f'<option selected>{opt}</option>'
+                    else:
+                        html += f'<option>{opt}</option>'
+                html += '</select></td></tr>'
+            
+            html += '</table></div></div>'
             
         elif qtype == 'gapselect':
             qt = q_elem.find('.//questiontext')
