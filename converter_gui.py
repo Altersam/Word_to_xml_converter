@@ -17,9 +17,10 @@ from PyQt5.QtWidgets import (
     QGroupBox, QPushButton, QLabel, QLineEdit, QFileDialog,
     QComboBox, QCheckBox, QTextEdit, QProgressBar, QSplitter,
     QMessageBox, QTreeWidget, QTreeWidgetItem, QHeaderView,
-    QAbstractItemView
+    QAbstractItemView, QFrame
 )
-from PyQt5.QtCore import Qt, QThread, pyqtSignal
+from PyQt5.QtWebEngineWidgets import QWebEngineView
+from PyQt5.QtCore import Qt, QThread, pyqtSignal, QUrl
 from PyQt5.QtGui import QColor, QFont, QBrush
 
 # Подключаем конвертер
@@ -522,11 +523,9 @@ class MainWindow(QMainWindow):
         preview_group = QGroupBox('Предпросмотр Moodle')
         preview_layout = QVBoxLayout(preview_group)
         
-        self.preview_text = QTextEdit()
-        self.preview_text.setReadOnly(True)
-        self.preview_text.setFont(QFont('Segoe UI', 10))
-        self.preview_text.setStyleSheet('background: #fafafa; border: 1px solid #ccc;')
-        preview_layout.addWidget(self.preview_text)
+        self.preview_web = QWebEngineView()
+        self.preview_web.setStyleSheet('background: #fafafa; border: 1px solid #ccc;')
+        preview_layout.addWidget(self.preview_web)
         
         h_splitter.addWidget(v_splitter)
         h_splitter.addWidget(preview_group)
@@ -866,7 +865,7 @@ class MainWindow(QMainWindow):
         q = self.questions[q_idx]
         
         if q.errors:
-            self.preview_text.setHtml(f'<div style="color:red; padding:10px;"><b>Ошибки в вопросе:</b><br>{ "<br>".join(q.errors) }</div>')
+            self.preview_web.setHtml(f'<div style="color:red; padding:10px;"><b>Ошибки в вопросе:</b><br>{ "<br>".join(q.errors) }</div>')
             return
         
         try:
@@ -903,47 +902,187 @@ class MainWindow(QMainWindow):
             xml_str = etree.tostring(gen.root, pretty_print=True, encoding='unicode')
             
             html = self._xml_to_moodle_preview(q.name, q.content, marker, xml_str, q.marker)
-            self.preview_text.setHtml(html)
+            self.preview_web.setHtml(html)
             
         except Exception as e:
-            self.preview_text.setHtml(f'<div style="color:red; padding:10px;">Ошибка: {str(e)}</div>')
+            self.preview_web.setHtml(f'<div style="color:red; padding:10px;">Ошибка: {str(e)}</div>')
     
     def _xml_to_moodle_preview(self, name, content, marker, xml_str, original_marker=''):
+        moodle_css = '''
+        <style>
+        * { box-sizing: border-box; }
+        body { 
+            font-family: 'Segoe UI', Arial, sans-serif; 
+            font-size: 14px; 
+            line-height: 1.5; 
+            color: #333;
+            padding: 15px;
+            background: #fff;
+        }
+        .que { 
+            background: #f9f9f9; 
+            border: 1px solid #ddd; 
+            border-radius: 4px; 
+            padding: 15px; 
+            margin-bottom: 15px;
+        }
+        .que.multichoice { border-left: 4px solid #4a90d9; }
+        .que.gapselect { border-left: 4px solid #9b59b6; }
+        .que.matching { border-left: #f39c12; }
+        .que.cloze { border-left: #f1c40f; }
+        .que.numerical, .que.shortanswer { border-left: #1abc9c; }
+        
+        .formulation { 
+            color: #333; 
+            margin-bottom: 15px;
+        }
+        .formulation h3 {
+            font-size: 16px;
+            font-weight: 600;
+            color: #2c3e50;
+            margin: 0 0 10px 0;
+        }
+        .formulation .qtext {
+            margin-bottom: 15px;
+        }
+        
+        .ablock { 
+            background: #fff; 
+            border: 1px solid #eee; 
+            padding: 10px; 
+            border-radius: 4px;
+        }
+        
+        .answer { 
+            margin: 5px 0; 
+        }
+        .answer label {
+            cursor: pointer;
+            display: block;
+            padding: 5px 8px;
+            border-radius: 3px;
+            margin: 2px 0;
+        }
+        .answer label:hover {
+            background: #f0f0f0;
+        }
+        .answer label input {
+            margin-right: 8px;
+        }
+        
+        .correct { 
+            background: #d4edda !important; 
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        .incorrect {
+            background: #f8d7da !important;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+        .partial {
+            background: #fff3cd !important;
+            border: 1px solid #ffeeba;
+            color: #856404;
+        }
+        
+        .gapselect select {
+            padding: 4px 8px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            background: #fff;
+            font-size: 14px;
+            min-width: 120px;
+        }
+        
+        .matching .draggable {
+            background: #e8f4f8;
+            padding: 5px 10px;
+            margin: 3px;
+            border-radius: 3px;
+            display: inline-block;
+        }
+        .matching .drop {
+            background: #f0f0f0;
+            padding: 5px 10px;
+            margin: 3px;
+            border-radius: 3px;
+            border: 1px dashed #999;
+            display: inline-block;
+            min-width: 100px;
+        }
+        
+        .cloze .gap {
+            background: #fff9e6;
+            border: 1px solid #ffd966;
+            padding: 2px 6px;
+            border-radius: 3px;
+        }
+        
+        input[type="text"].answer {
+            padding: 8px 12px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            width: 200px;
+            font-size: 14px;
+        }
+        
+        .feedback {
+            margin-top: 10px;
+            padding: 10px;
+            border-radius: 4px;
+            font-size: 13px;
+        }
+        .feedback.correct { 
+            background: #d4edda; 
+            border: 1px solid #c3e6cb; 
+        }
+        .feedback.incorrect { 
+            background: #f8d7da; 
+            border: 1px solid #f5c6cb; 
+        }
+        </style>
+        '''
+        
         tree = etree.fromstring(xml_str)
         
         q_elem = tree.find('.//question')
         if q_elem is None:
-            return '<div style="color:red;">XML не содержит вопросов</div>'
+            return f'{moodle_css}<div style="color:red;">XML не содержит вопросов</div>'
         
         qtype = q_elem.get('type', '')
+        
+        html = moodle_css
         
         if qtype == 'multichoice':
             single = q_elem.find('.//single')
             single_val = single.text if single is not None else 'true'
-            is_single = single_val == 'true'
             
             qt = q_elem.find('.//questiontext')
             qtext = ''.join(qt.itertext()) if qt is not None else ''
             
             answers = q_elem.findall('.//answer')
             
-            html = f'<div style="font-family:Segoe UI; max-width:100%;">'
-            html += f'<h3 style="color:#333;">{name}</h3>'
-            html += f'<p style="color:#555;">{qtext}</p>'
-            html += '<div style="margin:10px 0 20px 20px;">'
+            html += f'<div class="que multichoice">'
+            html += f'<div class="formulation"><h3>{name}</h3>'
+            html += f'<div class="qtext">{qtext}</div></div>'
+            html += '<div class="ablock"><div class="answer">'
             
             for ans in answers:
                 fraction = ans.get('fraction', '0')
                 ans_text = ''.join(ans.itertext())
                 
                 if fraction == '100':
-                    html += f'<div style="color:green; margin:4px 0;">● {ans_text}</div>'
+                    html += f'<label class="correct">'
+                    html += f'<input type="{"radio" if single_val == "true" else "checkbox"}"> {ans_text}</label>'
                 elif fraction == '50':
-                    html += f'<div style="color:#c90;">● {ans_text} (50%)</div>'
+                    html += f'<label class="partial">'
+                    html += f'<input type="{"radio" if single_val == "true" else "checkbox"}"> {ans_text} (50%)</label>'
                 else:
-                    html += f'<div style="color:#999; margin:4px 0;">○ {ans_text}</div>'
+                    html += f'<label>'
+                    html += f'<input type="{"radio" if single_val == "true" else "checkbox"}"> {ans_text}</label>'
             
-            html += '</div></div>'
+            html += '</div></div></div>'
             
         elif qtype == 'matching':
             qt = q_elem.find('.//questiontext')
@@ -951,24 +1090,23 @@ class MainWindow(QMainWindow):
             
             subqs = q_elem.findall('.//subquestion')
             
-            html = f'<div style="font-family:Segoe UI; max-width:100%;">'
-            html += f'<h3 style="color:#333;">{name}</h3>'
-            html += f'<p style="color:#555;">{qtext}</p>'
+            html += f'<div class="que matching" style="border-left:4px solid #f39c12;">'
+            html += f'<div class="formulation"><h3>{name}</h3>'
+            html += f'<div class="qtext">{qtext}</div></div>'
+            html += '<div class="ablock">'
             
             for sq in subqs:
                 text = ''.join(sq.find('text').itertext()) if sq.find('text') is not None else ''
                 ans_text = ''.join(sq.find('.//answer/text').itertext()) if sq.find('.//answer') is not None else ''
-                html += f'<div style="margin:5px 0; padding:5px; background:#f5f5f5; border-radius:4px;">'
-                html += f'<b>{text}</b> → <span style="color:green;">{ans_text}</span>'
+                html += f'<div style="margin:8px 0;">'
+                html += f'<span class="drop">{text}</span> → <span class="draggable">{ans_text}</span>'
                 html += '</div>'
             
-            html += '</div>'
+            html += '</div></div>'
             
         elif qtype == 'gapselect':
             qt = q_elem.find('.//questiontext')
             qtext = ''.join(qt.itertext()) if qt is not None else ''
-            
-            selectopts = q_elem.findall('.//selectoption')
             
             answer_key = ''
             for line in content:
@@ -982,9 +1120,7 @@ class MainWindow(QMainWindow):
             
             has_cyrillic = any('А' <= c <= 'Я' or 'а' <= c <= 'я' for c in answer_key)
             
-            html = f'<div style="font-family:Segoe UI; max-width:100%;">'
-            html += f'<h3 style="color:#333;">{name}</h3>'
-            html += f'<p style="color:#555;">{qtext}</p>'
+            selectopts = q_elem.findall('.//selectoption')
             
             groups = {}
             for opt in selectopts:
@@ -992,33 +1128,40 @@ class MainWindow(QMainWindow):
                 group = opt.get('group', '1')
                 if group not in groups:
                     groups[group] = []
-                groups[group].append((text, opt))
+                groups[group].append(text)
+            
+            html += f'<div class="que gapselect">'
+            html += f'<div class="formulation"><h3>{name}</h3>'
+            html += f'<div class="qtext">{qtext}</div></div>'
+            html += '<div class="ablock"><div class="gapselect">'
             
             for g_idx, (g, opts) in enumerate(sorted(groups.items())):
                 correct_letter = answer_key[g_idx] if g_idx < len(answer_key) else ''
                 
-                html += f'<div style="margin:10px 0;"><b>Группа {g}:</b> (правильный: {correct_letter})<br>'
-                for text, opt_elem in opts:
+                html += f'<select><option>-- выберите --</option>'
+                for text in opts:
                     letter_match = re.match(r'^([A-DА-Г])', text)
                     letter = letter_match.group(1) if letter_match else ''
                     
                     is_correct = (has_cyrillic and letter == correct_letter) or (not has_cyrillic and letter.upper() == correct_letter.upper())
                     
                     if is_correct:
-                        html += f'<span style="display:inline-block; margin:2px 5px; padding:2px 8px; background:#c8e6c9; border-radius:3px; border:1px solid #4caf50;">{text} ✓</span>'
+                        html += f'<option selected style="background:#d4edda;">{text} ✓</option>'
                     else:
-                        html += f'<span style="display:inline-block; margin:2px 5px; padding:2px 8px; background:#e0e0e0; border-radius:3px;">{text}</span>'
-                html += '</div>'
+                        html += f'<option>{text}</option>'
+                html += '</select> '
             
-            html += '</div>'
+            html += '</div></div></div>'
             
         elif qtype == 'cloze':
             qt = q_elem.find('.//questiontext')
             qtext = ''.join(qt.itertext()) if qt is not None else ''
             
-            html = f'<div style="font-family:Segoe UI; max-width:100%;">'
-            html += f'<h3 style="color:#333;">{name}</h3>'
-            html += f'<p style="color:#555; font-style:italic;">{qtext}</p>'
+            qtext = qtext.replace('[[', '<span class="gap">[</span>').replace(']]', '<span class="gap">]</span>')
+            
+            html += f'<div class="que cloze" style="border-left:4px solid #f1c40f;">'
+            html += f'<div class="formulation"><h3>{name}</h3>'
+            html += f'<div class="qtext">{qtext}</div></div>'
             html += '</div>'
             
         elif qtype in ('numerical', 'shortanswer'):
@@ -1027,25 +1170,24 @@ class MainWindow(QMainWindow):
             
             answers = q_elem.findall('.//answer')
             
-            html = f'<div style="font-family:Segoe UI; max-width:100%;">'
-            html += f'<h3 style="color:#333;">{name}</h3>'
-            html += f'<p style="color:#555;">{qtext}</p>'
-            html += '<div style="margin:10px 0;">'
-            
+            correct_answers = []
             for ans in answers:
-                fraction = ans.get('fraction', '0')
-                ans_text = ''.join(ans.itertext())
-                
-                if fraction == '100':
-                    html += f'<div style="color:green;">Правильный ответ: {ans_text}</div>'
-                else:
-                    html += f'<div style="color:#999;">{ans_text}</div>'
+                if ans.get('fraction') == '100':
+                    correct_answers.append(''.join(ans.itertext()))
             
-            html += '<input type="text" style="width:200px; padding:5px; border:1px solid #ccc; border-radius:4px;" placeholder="Ваш ответ..." disabled>'
+            html += f'<div class="que {qtype}" style="border-left:4px solid #1abc9c;">'
+            html += f'<div class="formulation"><h3>{name}</h3>'
+            html += f'<div class="qtext">{qtext}</div></div>'
+            html += '<div class="ablock">'
+            html += f'<input type="text" class="answer" placeholder="Ваш ответ">'
+            
+            if correct_answers:
+                html += f'<div class="feedback correct">Правильный ответ: {", ".join(correct_answers)}</div>'
+            
             html += '</div></div>'
         
         else:
-            html = f'<div style="font-family:Segoe UI;">Тип: {qtype} — предпросмотр недоступен</div>'
+            html += f'<div class="que">Тип: {qtype} — предпросмотр недоступен</div>'
         
         return html
 

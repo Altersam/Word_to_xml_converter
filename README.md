@@ -15,7 +15,7 @@ Word (.docx) to Moodle XML converter with graphical interface.
 ## Dependencies
 
 ```
-pip install PyQt5 lxml python-docx docxlatex
+pip install PyQt5 PyQtWebEngine lxml python-docx docxlatex
 ```
 
 ## Running
