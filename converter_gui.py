@@ -928,9 +928,10 @@ class MainWindow(QMainWindow):
         }
         .que.multichoice { border-left: 4px solid #4a90d9; }
         .que.gapselect { border-left: 4px solid #9b59b6; }
-        .que.matching { border-left: #f39c12; }
-        .que.cloze { border-left: #f1c40f; }
-        .que.numerical, .que.shortanswer { border-left: #1abc9c; }
+        .que.matching, .que.match { border-left: 4px solid #f39c12; }
+        .que.ddmatch { border-left: 4px solid #e74c3c; }
+        .que.cloze { border-left: 4px solid #f1c40f; }
+        .que.numerical, .que.shortanswer { border-left: 4px solid #1abc9c; }
         
         .formulation { 
             color: #333; 
@@ -1087,7 +1088,7 @@ class MainWindow(QMainWindow):
             
             html += '</div></div></div>'
             
-        elif qtype == 'matching':
+        elif qtype in ('matching', 'match'):
             qt = q_elem.find('.//questiontext')
             qtext = ''.join(qt.itertext()) if qt is not None else ''
             
@@ -1123,6 +1124,51 @@ class MainWindow(QMainWindow):
                 html += '</select></td></tr>'
             
             html += '</table></div></div>'
+            
+        elif qtype == 'ddmatch':
+            qt = q_elem.find('.//questiontext')
+            qtext = ''.join(qt.itertext()) if qt is not None else ''
+            
+            subqs = q_elem.findall('.//subquestion')
+            
+            left_items = []
+            right_items = []
+            for sq in subqs:
+                text = ''.join(sq.find('text').itertext()) if sq.find('text') is not None else ''
+                ans_text = ''.join(sq.find('.//answer/text').itertext()) if sq.find('.//answer') is not None else ''
+                if text:
+                    left_items.append((text, ans_text))
+                if ans_text:
+                    right_items.append(ans_text)
+            
+            for ans in q_elem.findall('.//answer'):
+                text = ''.join(ans.find('text').itertext()) if ans.find('text') is not None else ''
+                if text and text not in right_items:
+                    right_items.append(text)
+            
+            html += f'<div class="que ddmatch" style="border-left:4px solid #e74c3c;">'
+            html += f'<div class="formulation"><h3>{name}</h3>'
+            html += f'<div class="qtext">{qtext}</div></div>'
+            html += '<div class="ablock"><div class="ddmatch-container">'
+            
+            html += '<div class="ddmatch-left" style="display:inline-block; vertical-align:top; margin-right:20px;">'
+            for text, correct in left_items:
+                html += f'<div class="ddmatch-item" style="background:#e8f4f8; padding:8px 12px; margin:5px 0; border-radius:4px; border:1px solid #3498db;">{text}</div>'
+            html += '</div>'
+            
+            html += '<div class="ddmatch-right" style="display:inline-block; vertical-align:top;">'
+            import random
+            shuffled_right = right_items[:]
+            random.seed(42)
+            random.shuffle(shuffled_right)
+            for item in shuffled_right:
+                is_correct = any(item == correct for _, correct in left_items)
+                bg = '#d4edda' if is_correct else '#f8f8f8'
+                border = '#27ae60' if is_correct else '#ccc'
+                html += f'<div class="ddmatch-target" style="background:{bg}; padding:8px 12px; margin:5px 0; border-radius:4px; border:2px dashed {border}; min-width:120px;">{item}</div>'
+            html += '</div>'
+            
+            html += '</div></div>'
             
         elif qtype == 'gapselect':
             qt = q_elem.find('.//questiontext')
