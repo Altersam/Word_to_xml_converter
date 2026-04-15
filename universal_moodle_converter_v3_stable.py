@@ -1017,33 +1017,39 @@ class XMLGenerator:
         self.question_count += 1
     
     def create_matching(self, name: str, content: List[str], grade: float = 1.0):
-        """Создает вопрос на сопоставление."""
+        """Создает вопрос на сопоставление.
+        
+        Особенности:
+        - Все L и R учитываются (не только уникальные)
+        - Если R повторяется, все вхождения используются
+        - Лишние R (больше чем L) становятся дистракторами
+        """
         tree = etree.fromstring(MATCHING_TEMPLATE)
         clean_name = name.replace('I:', '').replace('I ', '').strip() if name.startswith(('I:', 'I ')) else name
         tree.find('name').find('text').text = clean_name
         tree.find('defaultgrade').text = f'{grade:.7f}'
         
         question_parts = []
-        pairs = []
-        left_items = {}
-        right_items = {}
+        left_items = {}  # {номер: текст}
+        right_items = {}  # {номер: [текст1, текст2, ...]} - список для повторений
         numbered_items = {}
         
         for item in content:
             if '->' in item:
-                parts = item.split('->', 1)
-                pairs.append((parts[0].strip(), parts[1].strip()))
+                # Пропускаем явные пары
+                pass
             elif '=>' in item:
-                parts = item.split('=>', 1)
-                pairs.append((parts[0].strip(), parts[1].strip()))
+                pass
             elif re.match(r'^L\d+:', item):
                 num = re.match(r'^L(\d+):', item).group(1)
                 left_items[num] = re.sub(r'^L\d+:', '', item).strip()
             elif re.match(r'^R\d+:', item):
                 num = re.match(r'^R(\d+):', item).group(1)
-                right_items[num] = re.sub(r'^R\d+:', '', item).strip()
+                text = re.sub(r'^R\d+:', '', item).strip()
+                if num not in right_items:
+                    right_items[num] = []
+                right_items[num].append(text)
             elif re.match(r'^\d+:', item):
-                # Нумерованные элементы: "1: phrase" -> (phrase, number)
                 num = re.match(r'^(\d+):', item).group(1)
                 numbered_items[num] = re.sub(r'^\d+:', '', item).strip()
             elif not item.startswith('+:') and not item.startswith('-:'):
@@ -1051,14 +1057,9 @@ class XMLGenerator:
                 if cleaned:
                     question_parts.append(cleaned)
         
-        # L/R маркеры: создаем пары из совпадающих номеров
-        for num in sorted(left_items.keys(), key=int):
-            if num in right_items:
-                pairs.append((left_items[num], right_items[num]))
-        
-        # Нумерованные элементы: phrase -> number
-        for num in sorted(numbered_items.keys(), key=int):
-            pairs.append((numbered_items[num], num))
+        # Подсчитываем количество L и R
+        num_left = len(left_items)
+        # right_items = {номер: [текст1, текст2, ...]}
         
         question_text = '<br>'.join(question_parts)
         question_text = FormulaProcessor.tex_to_latex(question_text)
@@ -1074,22 +1075,46 @@ class XMLGenerator:
             question_html = '<p>' + remove_service_markers(question_text) + '</p>'
             qt_elem.find('text').text = etree.CDATA(question_html)
         
-        for q_text, a_text in pairs:
-            subq = etree.SubElement(tree, 'subquestion', format='html')
-            etree.SubElement(subq, 'text').text = etree.CDATA(f'<p>{FormulaProcessor.tex_to_latex(q_text)}</p>')
-            
-            answer = etree.SubElement(subq, 'answer')
-            etree.SubElement(answer, 'text').text = a_text
+        # Создаём пары: L1->R1[0], L2->R2[0], ...
+        # Если R[i] имеет несколько вхождений, используем все по порядку
+        left_nums = sorted(left_items.keys(), key=lambda x: int(x) if x.isdigit() else 0)
         
-        # Добавляем дистракторы: R-элементы без парного L (или extra right items)
-        all_right_keys = set(right_items.keys())
-        all_left_keys = set(left_items.keys())
-        extra_right = all_right_keys - all_left_keys
-        for num in sorted(extra_right, key=lambda x: int(x) if x.isdigit() else 0):
+        pair_index = 0
+        for ln in left_nums:
+            l_text = left_items[ln]
+            if ln in right_items:
+                r_list = right_items[ln]
+                # Берём первое неиспользованное вхождение R с этим номером
+                r_text = r_list[0] if r_list else ''
+                subq = etree.SubElement(tree, 'subquestion', format='html')
+                etree.SubElement(subq, 'text').text = etree.CDATA(f'<p>{FormulaProcessor.tex_to_latex(l_text)}</p>')
+                answer = etree.SubElement(subq, 'answer')
+                etree.SubElement(answer, 'text').text = r_text
+                pair_index += 1
+        
+        # Добавляем дистракторы: все оставшиеся R (которые не спарены)
+        for rn, r_list in right_items.items():
+            if len(r_list) > 1:
+                # Все вхождения после первого становятся дистракторами
+                for r_text in r_list[1:]:
+                    subq = etree.SubElement(tree, 'subquestion', format='html')
+                    etree.SubElement(subq, 'text').text = ''
+                    answer = etree.SubElement(subq, 'answer')
+                    etree.SubElement(answer, 'text').text = r_text
+            elif rn not in left_items:
+                # R без пары L - дистрактор
+                for r_text in r_list:
+                    subq = etree.SubElement(tree, 'subquestion', format='html')
+                    etree.SubElement(subq, 'text').text = ''
+                    answer = etree.SubElement(subq, 'answer')
+                    etree.SubElement(answer, 'text').text = r_text
+        
+        # Нумерованные элементы: phrase -> number (fallback)
+        for num in sorted(numbered_items.keys(), key=int):
             subq = etree.SubElement(tree, 'subquestion', format='html')
-            etree.SubElement(subq, 'text').text = ''
+            etree.SubElement(subq, 'text').text = etree.CDATA(f'<p>{FormulaProcessor.tex_to_latex(numbered_items[num])}</p>')
             answer = etree.SubElement(subq, 'answer')
-            etree.SubElement(answer, 'text').text = right_items[num]
+            etree.SubElement(answer, 'text').text = num
         
         self.root.append(tree)
         self.question_count += 1
