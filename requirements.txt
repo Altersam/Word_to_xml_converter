@@ -1,0 +1,4 @@
+PyQt5==5.15.11
+lxml
+python-docx
+docxlatex

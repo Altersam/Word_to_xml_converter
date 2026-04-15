@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Task Tracker - Moodle XML Converter v3</title>
+    <style>
+        * { box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 1200px; margin: 0 auto; padding: 20px; background: #f5f5f5; }
+        h1 { color: #333; border-bottom: 2px solid #4CAF50; padding-bottom: 10px; }
+        h2 { color: #555; margin-top: 30px; }
+        .task { background: white; border-radius: 8px; padding: 20px; margin: 15px 0; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .task-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+        .task-id { background: #4CAF50; color: white; padding: 4px 12px; border-radius: 12px; font-size: 14px; }
+        .task-date { color: #888; font-size: 14px; }
+        .task-title { font-size: 18px; font-weight: 600; color: #333; margin: 10px 0; }
+        .task-desc { color: #666; line-height: 1.6; }
+        .task-files { margin-top: 10px; }
+        .file-tag { background: #e3f2fd; color: #1976D2; padding: 4px 8px; border-radius: 4px; font-size: 12px; margin-right: 5px; }
+        .status { padding: 4px 12px; border-radius: 12px; font-size: 12px; }
+        .status-done { background: #c8e6c9; color: #2e7d32; }
+        .bug { background: #ffcdd2; color: #c62828; padding: 2px 8px; border-radius: 4px; font-size: 12px; }
+        code { background: #f5f5f5; padding: 2px 6px; border-radius: 3px; font-size: 13px; }
+        pre { background: #263238; color: #aed581; padding: 15px; border-radius: 6px; overflow-x: auto; font-size: 13px; }
+    </style>
+</head>
+<body>
+    <h1>Task Tracker - Moodle XML Converter v3</h1>
+    <p>Конвертер Word (.docx) в Moodle XML</p>
+
+    <h2>История изменений</h2>
+
+    <!-- Task 25 -->
+    <div class="task">
+        <div class="task-header">
+            <span class="task-id">#25</span>
+            <span class="task-date">2026-04-10</span>
+            <span class="status status-done">Done</span>
+        </div>
+        <div class="task-title">Исправление {numerical_numcombo} - 3 бага</div>
+        <div class="task-desc">
+            <strong>Проблема 1:</strong> Ответы не добавлялись в XML (стоял return перед self.root.append).<br>
+            <strong>Проблема 2:</strong> Логика ответов была как в numerical_partial, а нужно из +: брать цифры и переставлять.<br>
+            <strong>Проблема 3:</strong> Текст вопроса разбивался &lt;br&gt;, маркеры (1), (2), (3) становились 1), 2), 3).<br>
+            <strong>Решение:</strong>
+            <ul>
+                <li>Убран return перед добавлением в XML</li>
+                <li>Переписана логика: берём ответ из +:, разбиваем на цифры, генерируем все перестановки (123→123,132,213,231,312,321)</li>
+                <li>Сохранён оригинальный question_text_raw с переносами строк вместо &lt;br&gt;</li>
+            </ul>
+        </div>
+        <div class="task-files">
+            <span class="file-tag">universal_moodle_converter_v3_stable.py</span>
+            <span class="file-tag">README.md</span>
+        </div>
+    </div>
+
+    <!-- Task 24 -->
+    <div class="task">
+        <div class="task-header">
+            <span class="task-id">#24</span>
+            <span class="task-date">2026-04-09</span>
+            <span class="status status-done">Done</span>
+        </div>
+        <div class="task-title">XML splitting - ошибка "Reserved XML Name" при импорте в Moodle</div>
+        <div class="task-desc">
+            <strong>Проблема:</strong> При импорте частей XML в Moodle возникала ошибка "Reserved XML Name" на строке 25 - дублировалась XML декларация внутри файла.<br>
+            <strong>Решение:</strong>
+            <ul>
+                <li>Переписана функция split_xml_by_size в converter_gui.py</li>
+                <li>Использована текстовая обработка вместо lxml ElementTree</li>
+                <li>Каждая часть содержит одну XML декларацию в начале</li>
+                <li>Категории дублируются в начале каждой части</li>
+            </ul>
+        </div>
+        <div class="task-files">
+            <span class="file-tag">converter_gui.py</span>
+            <span class="file-tag">README.md</span>
+        </div>
+    </div>
+
+    <!-- Task 23 -->
+    <div class="task">
+        <div class="task-header">
+            <span class="task-id">#23</span>
+            <span class="task-date">2026-04-09</span>
+            <span class="status status-done">Done</span>
+        </div>
+        <div class="task-title">Исправление NUMERICAL_TEMPLATE - отсутствовали feedback элементы</div>
+        <div class="task-desc">
+            <strong>Проблема:</strong> При создании вопросов с маркером {numerical_partial} возникала ошибка 'NoneType' object has no attribute 'text' - отсутствовали элементы feedback в шаблоне numerical.<br>
+            <strong>Решение:</strong>
+            <ul>
+                <li>Добавлены correctfeedback, partiallycorrectfeedback, incorrectfeedback в NUMERICAL_TEMPLATE</li>
+                <li>Теперь вопросы с {numerical_partial} корректно конвертируются в type="numerical"</li>
+            </ul>
+        </div>
+        <div class="task-files">
+            <span class="file-tag">universal_moodle_converter_v3_stable.py</span>
+        </div>
+    </div>
+
+    <!-- Task 22 -->
+    <div class="task">
+        <div class="task-header">
+            <span class="task-id">#22</span>
+            <span class="task-date">2026-04-09</span>
+            <span class="status status-done">Done</span>
+        </div>
+        <div class="task-title">Исправление numerical_partial - работает для любых маркеров</div>
+        <div class="task-desc">
+            <strong>Проблема:</strong> numerical_partial работал только для 'ист'/'общ' предметов.<br>
+            <strong>Решение:</strong>
+            <ul>
+                <li>Теперь использует маркеры: subject in ('numerical_partial', 'partial')</li>
+                <li>Передаётся 'numerical_partial' из _save_question</li>
+                <li>Убрана привязка к конкретным предметам</li>
+            </ul>
+        </div>
+        <div class="task-files">
+            <span class="file-tag">universal_moodle_converter_v3_stable.py</span>
+        </div>
+    </div>
+
+    <!-- Task 21 -->
+    <div class="task">
+        <div class="task-header">
+            <span class="task-id">#21</span>
+            <span class="task-date">2026-04-09</span>
+            <span class="status status-done">Done</span>
+        </div>
+        <div class="task-title">GUI чекбокс "Выделить все" - исправлен размер</div>
+        <div class="task-desc">
+            <strong>Проблема:</strong> Чекбокс "Выделить все" занимал полэкрана.<br>
+            <strong>Решение:</strong> Перенесён в одну строку с счётчиком, фиксированная высота 32px.
+        </div>
+        <div class="task-files">
+            <span class="file-tag">converter_gui.py</span>
+        </div>
+    </div>
+
+    <!-- Task 20 -->
+    <div class="task">
+        <div class="task-header">
+            <span class="task-id">#20</span>
+            <span class="task-date">2026-04-09</span>
+            <span class="status status-done">Done</span>
+        </div>
+        <div class="task-title">Переименование маркеров shortanswer_* → numerical_*</div>
+        <div class="task-desc">
+            <strong>Проблема:</strong> Нужно использовать type="numerical" в XML для этих маркеров.<br>
+            <strong>Решение:</strong>
+            <ul>
+                <li>shortanswer_partial → numerical_partial</li>
+                <li>shortanswer_numcombo → numerical_numcombo</li>
+                <li>Добавлены alias'ы в MARKER_TO_QTYPE</li>
+            </ul>
+        </div>
+        <div class="task-files">
+            <span class="file-tag">universal_moodle_converter_v3_stable.py</span>
+            <span class="file-tag">README.md</span>
+        </div>
+    </div>
+
+    <!-- Task 19 -->
+    <div class="task">
+        <div class="task-header">
+            <span class="task-id">#19</span>
+            <span class="task-date">2026-04-09</span>
+            <span class="status status-done">Done</span>
+        </div>
+        <div class="task-title">Удаление fraction=0 из генератора</div>
+        <div class="task-desc">
+            <strong>Проблема:</strong> Генерировались ответы с fraction="0" которые не нужны.<br>
+            <strong>Решение:</strong> Оставлены только 100% и 50% ответы.
+        </div>
+        <div class="task-files">
+            <span class="file-tag">universal_moodle_converter_v3_stable.py</span>
+        </div>
+    </div>
+
+    <!-- Task 18 -->
+    <div class="task">
+        <div class="task-header">
+            <span class="task-id">#18</span>
+            <span class="task-date">2026-04-08</span>
+            <span class="status status-done">Done</span>
+        </div>
+        <div class="task-title">GUI чекбоксы выбора вопросов</div>
+        <div class="task-desc">
+            <strong>Проблема:</strong> Нужно добавить возможность выбора конкретных вопросов для конвертации.<br>
+            <strong>Решение:</strong>
+            <ul>
+                <li>Добавлены чекбоксы в первой колонке дерева вопросов</li>
+                <li>Добавлен чекбокс "Выделить все"</li>
+                <li>Исправлена фильтрация выбранных вопросов</li>
+            </ul>
+        </div>
+        <div class="task-files">
+            <span class="file-tag">converter_gui.py</span>
+        </div>
+    </div>
+
+    <!-- Task 17 -->
+    <div class="task">
+        <div class="task-header">
+            <span class="task-id">#17</span>
+            <span class="task-date">2026-04-08</span>
+            <span class="status status-done">Done</span>
+        </div>
+        <div class="task-title">Shortanswer numcombo - нумерация + комбинации</div>
+        <div class="task-desc">
+            <strong>Проблема:</strong> {shortanswer_numcombo} не работал корректно.<br>
+            <strong>Решение:</strong> Перемещена проверка numcombo перед partial, добавлена нумерация вариантов 1)2)3) и генерация всех комбинаций позиций правильных ответов.
+        </div>
+        <div class="task-files">
+            <span class="file-tag">universal_moodle_converter_v3_stable.py</span>
+        </div>
+    </div>
+
+    <!-- Task 16 -->
+    <div class="task">
+        <div class="task-header">
+            <span class="task-id">#16</span>
+            <span class="task-date">2026-04-08</span>
+            <span class="status status-done">Done</span>
+        </div>
+        <div class="task-title">Shortanswer partial - все перестановки</div>
+        <div class="task-desc">
+            <strong>Проблема:</strong> {shortanswer_partial} генерировал не все варианты.<br>
+            <strong>Решение:</strong> Заменена логика комбинаций на перестановки (permutations), как в оригинальной спецификации.
+        </div>
+        <div class="task-files">
+            <span class="file-tag">universal_moodle_converter_v3_stable.py</span>
+        </div>
+    </div>
+
+    <!-- Task 15 -->
+    <div class="task">
+        <div class="task-header">
+            <span class="task-id">#15</span>
+            <span class="task-date">2026-04-08</span>
+            <span class="status status-done">Done</span>
+        </div>
+        <div class="task-title">Category duplication при XML сплите</div>
+        <div class="task-desc">
+            <strong>Проблема:</strong> При разбиении XML на части дублировались категории.<br>
+            <strong>Решение:</strong> Добавлена защита от дубликатов + каждая часть начинается с последней категории.
+        </div>
+        <div class="task-files">
+            <span class="file-tag">universal_moodle_converter_v3_stable.py</span>
+        </div>
+    </div>
+
+    <!-- Task 14 -->
+    <div class="task">
+        <div class="task-header">
+            <span class="task-id">#14</span>
+            <span class="task-date">2026-04-08</span>
+            <span class="status status-done">Done</span>
+        </div>
+        <div class="task-title">V1/V2 категории в любом месте файла</div>
+        <div class="task-desc">
+            <strong>Проблема:</strong> V2 subcategories работали только в начале файла.<br>
+            <strong>Решение:</strong> Добавлена обработка V1/V2 в любом месте файла.
+        </div>
+        <div class="task-files">
+            <span class="file-tag">universal_moodle_converter_v3_stable.py</span>
+        </div>
+    </div>
+
+    <!-- Task 13 -->
+    <div class="task">
+        <div class="task-header">
+            <span class="task-id">#13</span>
+            <span class="task-date">2026-04-08</span>
+            <span class="status status-done">Done</span>
+        </div>
+        <div class="task-title">Line breaks в questiontext</div>
+        <div class="task-desc">
+            <strong>Проблема:</strong> Переносы строк не сохранялись в XML.<br>
+            <strong>Решение:</strong> Использован тег <code>&lt;br&gt;</code> между частями вопроса.
+        </div>
+        <div class="task-files">
+            <span class="file-tag">universal_moodle_converter_v3_stable.py</span>
+        </div>
+    </div>
+
+    <!-- Task 12 -->
+    <div class="task">
+        <div class="task-header">
+            <span class="task-id">#12</span>
+            <span class="task-date">2026-04-08</span>
+            <span class="status status-done">Done</span>
+        </div>
+        <div class="task-title">Service markers в questiontext</div>
+        <div class="task-desc">
+            <strong>Проблема:</strong> Служебные маркеры (S:, I:, V1:, V2:, +:, -:) попадали в XML.<br>
+            <strong>Решение:</strong> Добавлена функция remove_service_markers() при выводе.
+        </div>
+        <div class="task-files">
+            <span class="file-tag">universal_moodle_converter_v3_stable.py</span>
+        </div>
+    </div>
+
+    <!-- Task 11 -->
+    <div class="task">
+        <div class="task-header">
+            <span class="task-id">#11</span>
+            <span class="task-date">2026-04-08</span>
+            <span class="status status-done">Done</span>
+        </div>
+        <div class="task-title">"in ascending order" permutations block</div>
+        <div class="task-desc">
+            <strong>Проблема:</strong> Фраза "in ascending order" ошибочно генерировала перестановки.<br>
+            <strong>Решение:</strong> Добавлена проверка блокировки перестановок.
+        </div>
+        <div class="task-files">
+            <span class="file-tag">universal_moodle_converter_v3_stable.py</span>
+        </div>
+    </div>
+
+    <!-- Task 10 -->
+    <div class="task">
+        <div class="task-header">
+            <span class="task-id">#10</span>
+            <span class="task-date">2026-04-08</span>
+            <span class="status status-done">Done</span>
+        </div>
+        <div class="task-title">8-digit permutation limit</div>
+        <div class="task-desc">
+            <strong>Проблема:</strong> 8 цифр = 40320 перестановок - слишком много.<br>
+            <strong>Решение:</strong> Лимит уменьшен до 7 цифр (7! = 5040).
+        </div>
+        <div class="task-files">
+            <span class="file-tag">universal_moodle_converter_v3_stable.py</span>
+        </div>
+    </div>
+
+    <!-- Task 9 -->
+    <div class="task">
+        <div class="task-header">
+            <span class="task-id">#9</span>
+            <span class="task-date">2026-04-08</span>
+            <span class="status status-done">Done</span>
+        </div>
+        <div class="task-title">parse_answers_from_line crash</div>
+        <div class="task-desc">
+            <strong>Проблема:</strong> Crash при 3 группах вместо 2 в regex.<br>
+            <strong>Решение:</strong> Исправлена распаковка кортежа.
+        </div>
+        <div class="task-files">
+            <span class="file-tag">universal_moodle_converter_v3_stable.py</span>
+        </div>
+    </div>
+
+    <!-- Task 8 -->
+    <div class="task">
+        <div class="task-header">
+            <span class="task-id">#8</span>
+            <span class="task-date">2026-04-08</span>
+            <span class="status status-done">Done</span>
+        </div>
+        <div class="task-title">Shortanswer permutations duplication</div>
+        <div class="task-desc">
+            <strong>Проблема:</strong> Генерировались дубликаты перестановок.<br>
+            <strong>Решение:</strong> Удалены бессмысленные дублирования.
+        </div>
+        <div class="task-files">
+            <span class="file-tag">universal_moodle_converter_v3_stable.py</span>
+        </div>
+    </div>
+
+    <!-- Task 7 -->
+    <div class="task">
+        <div class="task-header">
+            <span class="task-id">#7</span>
+            <span class="task-date">2026-04-08</span>
+            <span class="status status-done">Done</span>
+        </div>
+        <div class="task-title">Gapselect recognition</div>
+        <div class="task-desc">
+            <strong>Проблема:</strong> Gapselect не распознавался для GER/FL/LING.<br>
+            <strong>Решение:</strong> Добавлен формат +: ABCD, исправлен regex для 1.A).
+        </div>
+        <div class="task-files">
+            <span class="file-tag">universal_moodle_converter_v3_stable.py</span>
+        </div>
+    </div>
+
+    <!-- Task 6 -->
+    <div class="task">
+        <div class="task-header">
+            <span class="task-id">#6</span>
+            <span class="task-date">2026-04-08</span>
+            <span class="status status-done">Done</span>
+        </div>
+        <div class="task-title">Matching distractors</div>
+        <div class="task-desc">
+            <strong>Проблема:</strong> Не добавлялись дистракторы в matching.<br>
+            <strong>Решение:</strong> Добавлены пустые subquestion для лишних R элементов.
+        </div>
+        <div class="task-files">
+            <span class="file-tag">universal_moodle_converter_v3_stable.py</span>
+        </div>
+    </div>
+
+    <!-- Task 5 -->
+    <div class="task">
+        <div class="task-header">
+            <span class="task-id">#5</span>
+            <span class="task-date">2026-04-08</span>
+            <span class="status status-done">Done</span>
+        </div>
+        <div class="task-title">Answer outside subquestion</div>
+        <div class="task-desc">
+            <strong>Проблема:</strong> Элемент answer находился снаружи subquestion в matching.<br>
+            <strong>Решение:</strong> Перемещён внутрь subquestion в функции create_matching.
+        </div>
+        <div class="task-files">
+            <span class="file-tag">universal_moodle_converter_v3_stable.py</span>
+        </div>
+    </div>
+
+    <!-- Task 4 -->
+    <div class="task">
+        <div class="task-header">
+            <span class="task-id">#4</span>
+            <span class="task-date">2026-04-08</span>
+            <span class="status status-done">Done</span>
+        </div>
+        <div class="task-title">Image processing - base64 extraction</div>
+        <div class="task-desc">
+            <strong>Проблема:</strong> Нужно правильно извлекать картинки из docx.<br>
+            <strong>Решение:</strong> Класс ImageProcessor для извлечения base64.
+        </div>
+        <div class="task-files">
+            <span class="file-tag">universal_moodle_converter_v3_stable.py</span>
+        </div>
+    </div>
+
+    <!-- Task 3 -->
+    <div class="task">
+        <div class="task-header">
+            <span class="task-id">#3</span>
+            <span class="task-date">2026-04-08</span>
+            <span class="status status-done">Done</span>
+        </div>
+        <div class="task-title">Formula processing - LaTeX to Latex</div>
+        <div class="task-desc">
+            <strong>Проблема:</strong> Нужно конвертировать формулы из LaTeX.<br>
+            <strong>Решение:</strong> Класс FormulaProcessor - конвертация $...$ в \(...\).
+        </div>
+        <div class="task-files">
+            <span class="file-tag">universal_moodle_converter_v3_stable.py</span>
+        </div>
+    </div>
+
+    <!-- Task 2 -->
+    <div class="task">
+        <div class="task-header">
+            <span class="task-id">#2</span>
+            <span class="task-date">2026-04-08</span>
+            <span class="status status-done">Done</span>
+        </div>
+        <div class="task-title">Question type detection</div>
+        <div class="task-desc">
+            <strong>Проблема:</strong> Нужен интеллектуальный выбор типа вопроса.<br>
+            <strong>Решение:</strong> Класс QuestionTypeDetector - маркер имеет приоритет над эвристикой.
+        </div>
+        <div class="task-files">
+            <span class="file-tag">universal_moodle_converter_v3_stable.py</span>
+        </div>
+    </div>
+
+    <!-- Task 1 -->
+    <div class="task">
+        <div class="task-header">
+            <span class="task-id">#1</span>
+            <span class="task-date">2026-04-08</span>
+            <span class="status status-done">Done</span>
+        </div>
+        <div class="task-title">XML Generator - все типы вопросов</div>
+        <div class="task-desc">
+            <strong>Проблема:</strong> Нужен полный генератор Moodle XML.<br>
+            <strong>Решение:</strong> Класс XMLGenerator с методами: create_multichoice, create_shortanswer, create_matching, create_ddmatch, create_gapselect, create_cloze.
+        </div>
+        <div class="task-files">
+            <span class="file-tag">universal_moodle_converter_v3_stable.py</span>
+        </div>
+    </div>
+
+    <h2>Итог</h2>
+    <p>Всего исправлено: <strong>25 задач</strong></p>
+    <p>Файлы: <code>universal_moodle_converter_v3_stable.py</code>, <code>converter_gui.py</code>, <code>README.md</code>, <code>Шаблоны вопросов_new.docx</code></p>
+
+</body>
+</html>
