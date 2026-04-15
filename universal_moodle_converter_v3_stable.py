@@ -317,8 +317,6 @@ MARKER_TO_QTYPE = {
     'multichoice_one':      'multichoice_one',
     'multichoice_many':     'multichoice_many',
     'shortanswer_phrase':   'shortanswer_phrase',
-    'shortanswer_partial':  'numerical_partial',
-    'shortanswer_numcombo': 'numerical_numcombo',
     'numerical_partial':    'numerical_partial',
     'numerical_numcombo':   'numerical_numcombo',
     'matching':             'matching',
@@ -758,9 +756,9 @@ class XMLGenerator:
         correct_answers = [a[0] for a in all_answers_ordered if a[1]]
         wrong_answers = [a[0] for a in all_answers_ordered if not a[1]]
         
-        # Используем numerical шаблон и partial scoring только для маркеров
-        use_partial = subject in ('numerical_partial', 'partial')
-        use_numcombo = subject == 'numerical_numcombo'
+        # Используем partial scoring только для маркеров
+        use_partial = subject in ('numerical_partial', 'numerical_partial', 'partial')
+        use_numcombo = subject in ('numerical_numcombo', 'numerical_numcombo')
         
         # Для numerical_partial и numerical_numcombo используем шаблон numerical
         use_numerical_template = use_partial or use_numcombo
@@ -810,6 +808,7 @@ class XMLGenerator:
             
             question_text = ImageProcessor.process_text(question_text_raw, self.image_data)
             question_text = FormulaProcessor.tex_to_latex(question_text)
+            question_text = question_text.replace('\n', '<br>')  # Сохраняем переносы строк
             
             qt_elem = tree.find('questiontext')
             if '_IMAGE_' in question_text:
@@ -855,31 +854,32 @@ class XMLGenerator:
             
             # Обновляем question_text с нумерацией
             question_text = '<br>'.join(numbered_parts)
-            question_text = ImageProcessor.process_text(question_text, self.image_data)
-            question_text = FormulaProcessor.tex_to_latex(question_text)
-            
-            qt_elem = tree.find('questiontext')
-            if '_IMAGE_' in question_text:
-                quest_data = get_image(question_text)
-                qt_elem.find('text').text = etree.CDATA('<p>' + remove_service_markers(quest_data[0].replace('_IMAGE_', '')) + '</p>')
-                for img_name, img_data in quest_data[1]:
-                    img_elem = etree.SubElement(qt_elem, 'file', name=img_name, path='/', encoding='base64')
-                    img_elem.text = img_data.replace('_IMAGE_', '')
-            else:
-                question_html = '<p>' + remove_service_markers(question_text) + '</p>'
-                qt_elem.find('text').text = etree.CDATA(question_html)
-            
-            # Генерируем ответы с partial scoring
-            # Преобразуем answer_positions в формат [(текст, True/False), ...]
-            answers_for_partial = [(text, is_correct) for pos, text, is_correct in answer_positions]
-            partial_results = self._generate_permutations_with_partial_scoring(
-                answers_for_partial, question_text_with_header
-            )
-            for ans_text, fraction in partial_results:
-                ans_elem = etree.SubElement(tree, 'answer')
-                ans_elem.set('fraction', str(fraction))
-                ans_elem.set('format', 'moodle_auto_format')
-                etree.SubElement(ans_elem, 'text').text = ans_text
+        question_text = ImageProcessor.process_text(question_text, self.image_data)
+        question_text = FormulaProcessor.tex_to_latex(question_text)
+        question_text = question_text.replace('\n', '<br>')  # Сохраняем переносы строк
+        
+        qt_elem = tree.find('questiontext')
+        if '_IMAGE_' in question_text:
+            quest_data = get_image(question_text)
+            qt_elem.find('text').text = etree.CDATA('<p>' + remove_service_markers(quest_data[0].replace('_IMAGE_', '')) + '</p>')
+            for img_name, img_data in quest_data[1]:
+                img_elem = etree.SubElement(qt_elem, 'file', name=img_name, path='/', encoding='base64')
+                img_elem.text = img_data.replace('_IMAGE_', '')
+        else:
+            question_html = '<p>' + remove_service_markers(question_text) + '</p>'
+            qt_elem.find('text').text = etree.CDATA(question_html)
+        
+        # Генерируем ответы с partial scoring
+        # Преобразуем answer_positions в формат [(текст, True/False), ...]
+        answers_for_partial = [(text, is_correct) for pos, text, is_correct in answer_positions]
+        partial_results = self._generate_permutations_with_partial_scoring(
+            answers_for_partial, question_text_with_header
+        )
+        for ans_text, fraction in partial_results:
+            ans_elem = etree.SubElement(tree, 'answer')
+            ans_elem.set('fraction', str(fraction))
+            ans_elem.set('format', 'moodle_auto_format')
+            etree.SubElement(ans_elem, 'text').text = ans_text
         else:
             # Стандартная логика / {shortanswer_phrase} / fallback
             for answer_text in correct_answers:
