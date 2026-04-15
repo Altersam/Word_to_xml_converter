@@ -240,3 +240,10 @@ Total:                            3224       Errors: 0
 | 19 | {numerical_numcombo} - question text split with `<br>` | Preserved original line breaks, keeps (1), (2), (3) intact |
 | 20 | {numerical_partial} - duplicate text answers | Fixed: removes duplicate else branch, only numerical answers |
 | 21 | {matching} - not all L and R entries used | Fixed: uses all entries, duplicate R = distractors |
+| 22 | {gapselect} - options in one line not parsed | Added regex for `A) ...; B) ...; C) ...; D) ...` |
+| 23 | {gapselect} - `+:CBCAB` key not recognized | Added regex `^\+:[A-D]+$` without required space |
+| 24 | {gapselect} - gaps (1)(2) not replaced with [[N]] | Used class `GapReplacer` for proper closure counter |
+| 25 | {gapselect} - wrong [[N]] formula | Fixed formula: `position = alpha[key[i]] + i * 4` |
+| 26 | {gapselect} - gaps only in question text, not in S: intro | Combined intro_text + question_text_parts before replacement |
+| 27 | {gapselect} - indentation lost | Fixed method indentation after refactoring |
+| 28 | {gapselect} - Cyrillic А, Б, В, Г options not parsed | Added А-Г to all [A-D] regex patterns and alpha_map |

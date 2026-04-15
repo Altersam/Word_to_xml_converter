@@ -869,7 +869,8 @@ class XMLGenerator:
             question_html = '<p>' + remove_service_markers(question_text) + '</p>'
             qt_elem.find('text').text = etree.CDATA(question_html)
         
-        for ans_text, is_right in answers:
+        # Генерируем ответы
+        if use_partial and answer_positions:
             # numerical_partial: partial scoring
             answers_for_partial = [(text, is_correct) for pos, text, is_correct in answer_positions]
             partial_results = self._generate_permutations_with_partial_scoring(
@@ -1202,8 +1203,11 @@ class XMLGenerator:
         Формат в docx:
           S:Инструкция (Вставьте пропущенные слова... или Выберите правильный вариант...)
           Текст с (1), (2), ... маркерами пропусков
-          A) option1; B) option2; C) option3; D) option4 (группа 1)
-          ...
+          A) option1; B) option2; C) option3; D) option4 (группа 1) - ВСЕ В ОДНОЙ СТРОКЕ
+          A) option1
+          B) option2
+          C) option3
+          D) option4  - ИЛИ ПО ОДНОЙ СТРОКЕ
           +:ABCD... (ключ ответов)
         """
         tree = etree.fromstring(GAPSELECT_TEMPLATE)
@@ -1217,42 +1221,58 @@ class XMLGenerator:
         answer_key = ''
         
         for item in content:
-            if item.startswith('S:'):
-                intro_text = strip_service_markers(item)
-            elif re.match(r'^ОТВЕТ:\s*[A-D]+$', item.strip()):
-                answer_key = re.sub(r'^ОТВЕТ:\s*', '', item.strip())
-            elif re.match(r'^Ответ:\s*[A-D\s]+$', item.strip()):
-                answer_key = re.sub(r'^Ответ:\s*', '', item.strip()).replace(' ', '')
-            elif re.match(r'^Ответы\s*:\s*[A-D]+$', item.strip()):
-                answer_key = re.sub(r'^Ответы\s*:\s*', '', item.strip()).replace(' ', '')
-            elif re.match(r'^\+:\s*[A-D]+\s*$', item.strip()):
-                answer_key = re.sub(r'^\+:\s*', '', item.strip()).replace(' ', '')
-            elif re.match(r'^(\t| |)?\d*\.?\s*A\)', item):
-                opts = re.findall(r'([A-D])\)\s*([^;]+)', item.strip())
-                for letter, text in opts:
-                    options.append((text.strip(), letter))
-            elif not item.startswith('+:'):
-                question_text_parts.append(item.strip())
+            item_stripped = item.strip()
+            if not item_stripped:
+                continue
+            
+            if item_stripped.startswith('S:'):
+                intro_text = strip_service_markers(item_stripped)
+            elif re.match(r'^ОТВЕТ:\s*[A-DА-Г]+$', item_stripped):
+                answer_key = re.sub(r'^ОТВЕТ:\s*', '', item_stripped)
+            elif re.match(r'^Ответ:\s*[A-DА-Г\s]+$', item_stripped):
+                answer_key = re.sub(r'^Ответ:\s*', '', item_stripped).replace(' ', '')
+            elif re.match(r'^Ответы\s*:\s*[A-DА-Г]+$', item_stripped):
+                answer_key = re.sub(r'^Ответы\s*:\s*', '', item_stripped).replace(' ', '')
+            elif re.match(r'^\+:\s*[A-DА-Г]+\s*$', item_stripped):
+                answer_key = re.sub(r'^\+:\s*', '', item_stripped).replace(' ', '')
+            elif re.match(r'^\+:[A-DА-Г]+$', item_stripped):
+                answer_key = re.sub(r'^\+:', '', item_stripped)
+            elif re.match(r'^ответы\s*:\s*[A-DА-Г]+$', item_stripped, re.IGNORECASE):
+                answer_key = re.sub(r'^ответы\s*:\s*', '', item_stripped, re.IGNORECASE).replace(' ', '')
+            elif re.match(r'^ответ:\s*[A-DА-Г\s]+$', item_stripped, re.IGNORECASE):
+                answer_key = re.sub(r'^ответ:\s*', '', item_stripped, re.IGNORECASE).replace(' ', '')
+            elif re.match(r'^[A-DА-Г]\)', item_stripped) or re.match(r'^(\t| |)?\d*\.?\s*[A-DА-Г]\)', item_stripped):
+                all_opts = re.findall(r'([A-DА-Г])\)\s*([^;]+?)(?=\s*[A-DА-Г]\)|;|$)', item_stripped)
+                if all_opts:
+                    for letter, text in all_opts:
+                        options.append((text.strip(), letter))
+                else:
+                    single_opt = re.match(r'^([A-D])\)\s*(.+)$', item_stripped)
+                    if single_opt:
+                        options.append((single_opt.group(2).strip(), single_opt.group(1)))
+            elif not item_stripped.startswith('+:') and not item_stripped.startswith('-:'):
+                question_text_parts.append(item_stripped)
         
-        question_text = '<br>'.join(question_text_parts)
-        question_text = FormulaProcessor.tex_to_latex(question_text)
+        full_question_text = intro_text + ('<br>' if intro_text and question_text_parts else '') + '<br>'.join(question_text_parts)
+        full_question_text = FormulaProcessor.tex_to_latex(full_question_text)
         
-        alpha_map = {'A': 1, 'B': 2, 'C': 3, 'D': 4}
-        gaps_processed = 0
+        alpha_map = {'A': 1, 'B': 2, 'C': 3, 'D': 4, 'А': 1, 'Б': 2, 'В': 3, 'Г': 4}
         
-        def replace_gap(match):
-            nonlocal gaps_processed
-            idx = gaps_processed
-            gaps_processed += 1
-            correct_pos = alpha_map.get(answer_key[idx], 1) if idx < len(answer_key) else 1
-            actual_idx = correct_pos + idx * 4
-            return f'[[{actual_idx}]]'
+        class GapReplacer:
+            def __init__(self):
+                self.idx = 0
+            def __call__(self, match):
+                i = self.idx
+                self.idx += 1
+                correct_letter = answer_key[i] if i < len(answer_key) else 'A'
+                correct_pos = alpha_map.get(correct_letter, 1)
+                return f'[[{correct_pos + i * 4}]]'
         
-        question_text = re.sub(r'\(\d+\)', replace_gap, question_text)
+        full_question_text = re.sub(r'\(\d+\)', GapReplacer(), full_question_text)
         
         qt_elem = tree.find('questiontext')
         qt_elem.find('text').text = etree.CDATA(
-            f'<p>{remove_service_markers(intro_text)}<br>{question_text}</p>'
+            f'<p>{full_question_text}</p>'
         )
         
         for i, (text, _) in enumerate(options):

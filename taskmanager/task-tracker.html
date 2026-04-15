@@ -30,6 +30,121 @@
 
     <h2>История изменений</h2>
 
+    <!-- Task 32 -->
+    <div class="task">
+        <div class="task-header">
+            <span class="task-id">#32</span>
+            <span class="task-date">2026-04-15</span>
+            <span class="status status-done">Done</span>
+        </div>
+        <div class="task-title">{gapselect} - кириллические варианты А, Б, В, Г</div>
+        <div class="task-desc">
+            <strong>Проблема:</strong> Варианты ответов на кириллице (А) ...; Б) ...; В) ...; Г) ...) и ключ +:BCBAC не распознавались.<br>
+            <strong>Решение:</strong> Добавлена кириллица во все regex-паттерны ([A-D] → [A-DА-Г]) и в alpha_map.
+        </div>
+        <div class="task-files">
+            <span class="file-tag">universal_moodle_converter_v3_stable.py</span>
+            <span class="file-tag">README.md</span>
+        </div>
+    </div>
+
+    <!-- Task 31 -->
+    <div class="task">
+        <div class="task-header">
+            <span class="task-id">#31</span>
+            <span class="task-date">2026-04-15</span>
+            <span class="status status-done">Done</span>
+        </div>
+        <div class="task-title">{gapselect} - исправлена замена (N) на [[M]]</div>
+        <div class="task-desc">
+            <strong>Проблема:</strong> gaps (1)(2)(3) не заменялись на [[3]][[6]][[11]].<br>
+            <strong>Причина:</strong> 
+            <ul>
+                <li>nonlocal счётчик не работал в замыкании</li>
+                <li>Формула была неправильная</li>
+                <li>Маркеры (N) были только в question_text_parts, не в S: intro</li>
+            </ul>
+            <strong>Решение:</strong>
+            <ul>
+                <li>Использован класс GapReplacer с __call__ для правильного замыкания</li>
+                <li>Исправлена формула: position = alpha[key[i]] + i * 4</li>
+                <li>Объединены intro_text + question_text_parts перед заменой</li>
+            </ul>
+        </div>
+        <div class="task-files">
+            <span class="file-tag">universal_moodle_converter_v3_stable.py</span>
+            <span class="file-tag">README.md</span>
+        </div>
+    </div>
+
+    <!-- Task 30 -->
+    <div class="task">
+        <div class="task-header">
+            <span class="task-id">#30</span>
+            <span class="task-date">2026-04-15</span>
+            <span class="status status-done">Done</span>
+        </div>
+        <div class="task-title">{gapselect} - потерян метод класса</div>
+        <div class="task-desc">
+            <strong>Проблема:</strong> При редактировании потерялся отступ метода create_gapselect - функция стала глобальной вместо метода класса.<br>
+            <strong>Решение:</strong> Исправлен отступ (добавлены 4 пробела).
+        </div>
+        <div class="task-files">
+            <span class="file-tag">universal_moodle_converter_v3_stable.py</span>
+        </div>
+    </div>
+
+    <!-- Task 29 -->
+    <div class="task">
+        <div class="task-header">
+            <span class="task-id">#29</span>
+            <span class="task-date">2026-04-15</span>
+            <span class="status status-done">Done</span>
+        </div>
+        <div class="task-title">{gapselect} - добавлена поддержка разных форматов</div>
+        <div class="task-desc">
+            <strong>Проблемы:</strong>
+            <ul>
+                <li>Варианты в одной строке (A) homework; B) household; ...) не парсились</li>
+                <li>Ключ +:ABC без пробела не распознавался</li>
+                <li>Кириллица "ответ:" не работала</li>
+            </ul>
+            <strong>Решение:</strong>
+            <ul>
+                <li>Добавлен regex для одного-re.findall([A-D])\)\s*([^;]+?)(?=...)</li>
+                <li>Добавлен regex ^\+:[A-D]+$</li>
+                <li>Добавлены regex с re.IGNORECASE для кириллицы</li>
+            </ul>
+        </div>
+        <div class="task-files">
+            <span class="file-tag">universal_moodle_converter_v3_stable.py</span>
+            <span class="file-tag">README.md</span>
+        </div>
+    </div>
+
+    <!-- Task 28 -->
+    <div class="task">
+        <div class="task-header">
+            <span class="task-id">#28</span>
+            <span class="task-date">2026-04-15</span>
+            <span class="status status-done">Done</span>
+        </div>
+        <div class="task-title">Очистка и подготовка к GitHub</div>
+        <div class="task-desc">
+            <strong>Выполнено:</strong>
+            <ul>
+                <li>Удалены временные тестовые файлы</li>
+                <li>Очищены логи</li>
+                <li>Обновлена документация README.md (bug fixes 22-27)</li>
+                <li>Обновлён task-tracker.html</li>
+            </ul>
+        </div>
+        <div class="task-files">
+            <span class="file-tag">README.md</span>
+            <span class="file-tag">taskmanager/task-tracker.html</span>
+        </div>
+    </div>
+
     <!-- Task 27 -->
     <div class="task">
         <div class="task-header">
@@ -538,7 +653,7 @@
     </div>
 
     <h2>Итог</h2>
-    <p>Всего исправлено: <strong>25 задач</strong></p>
+    <p>Всего исправлено: <strong>31 задача</strong></p>
     <p>Файлы: <code>universal_moodle_converter_v3_stable.py</code>, <code>converter_gui.py</code>, <code>README.md</code>, <code>Шаблоны вопросов_new.docx</code></p>
 
 </body>
