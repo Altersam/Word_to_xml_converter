@@ -1150,15 +1150,18 @@ class MainWindow(QMainWindow):
                     groups[group] = []
                 groups[group].append(text)
             
-            html += f'<div class="que gapselect">'
-            html += f'<div class="formulation"><h3>{name}</h3>'
-            html += f'<div class="qtext">{qtext}</div></div>'
-            html += '<div class="ablock"><div class="gapselect">'
+            sorted_groups = sorted(groups.items())
             
-            for g_idx, (g, opts) in enumerate(sorted(groups.items())):
+            def replace_gap(match):
+                pos = int(match.group(1))
+                g_idx = (pos - 2) // 4
+                if g_idx >= len(sorted_groups):
+                    return match.group(0)
+                
+                g, opts = sorted_groups[g_idx]
                 correct_letter = answer_key[g_idx] if g_idx < len(answer_key) else ''
                 
-                html += f'<select><option>-- выберите --</option>'
+                html = '<select style="padding:3px 5px; border:1px solid #999; border-radius:3px; background:#fff; min-width:100px;"><option>--</option>'
                 for text in opts:
                     letter_match = re.match(r'^([A-DА-Г])', text)
                     letter = letter_match.group(1) if letter_match else ''
@@ -1166,12 +1169,18 @@ class MainWindow(QMainWindow):
                     is_correct = (has_cyrillic and letter == correct_letter) or (not has_cyrillic and letter.upper() == correct_letter.upper())
                     
                     if is_correct:
-                        html += f'<option selected style="background:#d4edda;">{text} ✓</option>'
+                        html += f'<option selected>{text}</option>'
                     else:
                         html += f'<option>{text}</option>'
-                html += '</select> '
+                html += '</select>'
+                return html
             
-            html += '</div></div></div>'
+            qtext = re.sub(r'\[\[(\d+)\]\]', replace_gap, qtext)
+            
+            html += f'<div class="que gapselect">'
+            html += f'<div class="formulation"><h3>{name}</h3>'
+            html += f'<div class="qtext">{qtext}</div></div>'
+            html += '</div>'
             
         elif qtype == 'cloze':
             qt = q_elem.find('.//questiontext')
