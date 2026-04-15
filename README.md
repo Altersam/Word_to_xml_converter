@@ -101,15 +101,17 @@ The converter recognizes 7 formats of question beginning:
    - Counter shows "Выбрано: X / Y"
 4. **Question tree (50% width) + Moodle preview (50% width)**
    - Left: QTreeWidget with all questions, expandable content
-   - Right: Real-time preview of how question will look in Moodle
+   - Right: Real-time preview of how question will look in Moodle (QWebEngineView)
    - Click any question to see generated XML rendered as HTML
-5. **Preview** (QTreeWidget):
-   - List of all questions with expandable content
-   - Clicking a question reveals: text (S:), correct (+:, green), incorrect (-:, red), L/R pairs
-   - Marker combobox — can change marker for block
-   - Color coding by marker type
-   - Error highlighting in red
-5. **Preprocessing errors**:
+   - Supports images (base64) and formulas
+5. **Preview types**:
+   - **multichoice**: Radio/checkbox with Moodle styling
+   - **matching/match**: Table with dropdown selects
+   - **ddmatch**: Drag-and-drop preview with left items and shuffled right targets
+   - **gapselect**: Dropdowns inline in question text at [[N]] positions
+   - **cloze**: Embedded gaps shown inline
+   - **numerical/shortanswer**: Input field with correct answer
+6. **Preprocessing errors**:
    - Missing correct answer
    - Empty question text
    - Unknown marker
@@ -251,3 +253,7 @@ Total:                            3224       Errors: 0
 | 26 | {gapselect} - gaps only in question text, not in S: intro | Combined intro_text + question_text_parts before replacement |
 | 27 | {gapselect} - indentation lost | Fixed method indentation after refactoring |
 | 28 | {gapselect} - Cyrillic А, Б, В, Г options not parsed | Added А-Г to all [A-D] regex patterns and alpha_map |
+| 29 | GUI - added Moodle-like preview with QWebEngineView | Full CSS styling, images and formulas support |
+| 30 | GUI - matching now works same as match | Added 'match' as alias for 'matching' |
+| 31 | GUI - ddmatch drag-drop preview | Left items + shuffled right targets with styling |
+| 32 | GUI - gapselect dropdowns inline in text | Replaced [[N]] with select elements at correct positions |

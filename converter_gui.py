@@ -908,6 +908,11 @@ class MainWindow(QMainWindow):
             self.preview_web.setHtml(f'<div style="color:red; padding:10px;">Ошибка: {str(e)}</div>')
     
     def _xml_to_moodle_preview(self, name, content, marker, xml_str, original_marker=''):
+        def process_qtext(text):
+            text = text.replace('\n', '<br>')
+            text = re.sub(r'_@@PLUGINFILE@@/([^_]+)_IMAGE_([^_]+)_IMAGE_', r'<img src="data:image/png;base64,\2" style="max-width:400px;">', text)
+            return text
+        
         moodle_css = '''
         <style>
         * { box-sizing: border-box; }
@@ -1069,7 +1074,7 @@ class MainWindow(QMainWindow):
             
             html += f'<div class="que multichoice">'
             html += f'<div class="formulation"><h3>{name}</h3>'
-            html += f'<div class="qtext">{qtext}</div></div>'
+            html += f'<div class="qtext">{process_qtext(qtext)}</div></div>'
             html += '<div class="ablock"><div class="answer">'
             
             for ans in answers:
@@ -1108,7 +1113,7 @@ class MainWindow(QMainWindow):
             
             html += f'<div class="que matching" style="border-left:4px solid #f39c12;">'
             html += f'<div class="formulation"><h3>{name}</h3>'
-            html += f'<div class="qtext">{qtext}</div></div>'
+            html += f'<div class="qtext">{process_qtext(qtext)}</div></div>'
             html += '<div class="ablock"><table class="matching-table">'
             
             for idx, (text, correct_ans) in enumerate(all_answers):
@@ -1148,7 +1153,7 @@ class MainWindow(QMainWindow):
             
             html += f'<div class="que ddmatch" style="border-left:4px solid #e74c3c;">'
             html += f'<div class="formulation"><h3>{name}</h3>'
-            html += f'<div class="qtext">{qtext}</div></div>'
+            html += f'<div class="qtext">{process_qtext(qtext)}</div></div>'
             html += '<div class="ablock"><div class="ddmatch-container">'
             
             html += '<div class="ddmatch-left" style="display:inline-block; vertical-align:top; margin-right:20px;">'
@@ -1227,7 +1232,7 @@ class MainWindow(QMainWindow):
             
             html += f'<div class="que gapselect">'
             html += f'<div class="formulation"><h3>{name}</h3>'
-            html += f'<div class="qtext">{qtext}</div></div>'
+            html += f'<div class="qtext">{process_qtext(qtext)}</div></div>'
             html += '</div>'
             
         elif qtype == 'cloze':
@@ -1238,7 +1243,7 @@ class MainWindow(QMainWindow):
             
             html += f'<div class="que cloze" style="border-left:4px solid #f1c40f;">'
             html += f'<div class="formulation"><h3>{name}</h3>'
-            html += f'<div class="qtext">{qtext}</div></div>'
+            html += f'<div class="qtext">{process_qtext(qtext)}</div></div>'
             html += '</div>'
             
         elif qtype in ('numerical', 'shortanswer'):
@@ -1254,7 +1259,7 @@ class MainWindow(QMainWindow):
             
             html += f'<div class="que {qtype}" style="border-left:4px solid #1abc9c;">'
             html += f'<div class="formulation"><h3>{name}</h3>'
-            html += f'<div class="qtext">{qtext}</div></div>'
+            html += f'<div class="qtext">{process_qtext(qtext)}</div></div>'
             html += '<div class="ablock">'
             html += f'<input type="text" class="answer" placeholder="Ваш ответ">'
             

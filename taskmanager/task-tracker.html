@@ -30,6 +30,74 @@
 
     <h2>История изменений</h2>
 
+    <!-- Task 37 -->
+    <div class="task">
+        <div class="task-header">
+            <span class="task-id">#37</span>
+            <span class="task-date">2026-04-15</span>
+            <span class="status status-done">Done</span>
+        </div>
+        <div class="task-title">GUI - предпросмотр изображений и формул</div>
+        <div class="task-desc">
+            <strong>Изменение:</strong> Добавлена поддержка изображений (base64) и формул в предпросмотре Moodle.<br>
+            <strong>Реализация:</strong> Функция process_qtext() обрабатывает _@@PLUGINFILE@@/..._IMAGE_..._IMAGE_ в img с data:image/png;base64.
+        </div>
+        <div class="task-files">
+            <span class="file-tag">converter_gui.py</span>
+        </div>
+    </div>
+
+    <!-- Task 36 -->
+    <div class="task">
+        <div class="task-header">
+            <span class="task-id">#36</span>
+            <span class="task-date">2026-04-15</span>
+            <span class="status status-done">Done</span>
+        </div>
+        <div class="task-title">GUI - gapselect dropdowns inline в тексте вопроса</div>
+        <div class="task-desc">
+            <strong>Изменение:</strong> Выпадающие списки теперь отображаются прямо в тексте вопроса на месте [[N]].<br>
+            <strong>Реализация:</strong> regex заменяет [[N]] на <select> с опциями для соответствующей группы.
+        </div>
+        <div class="task-files">
+            <span class="file-tag">converter_gui.py</span>
+        </div>
+    </div>
+
+    <!-- Task 35 -->
+    <div class="task">
+        <div class="task-header">
+            <span class="task-id">#35</span>
+            <span class="task-date">2026-04-15</span>
+            <span class="status status-done">Done</span>
+        </div>
+        <div class="task-title">GUI - ddmatch drag-drop preview</div>
+        <div class="task-desc">
+            <strong>Изменение:</strong> Добавлен предпросмотр для ddmatch в стиле drag-and-drop.<br>
+            <strong>Реализация:</strong> Слева элементы L, справа перемешанные R с пунктирной рамкой, правильные — зелёным.
+        </div>
+        <div class="task-files">
+            <span class="file-tag">converter_gui.py</span>
+        </div>
+    </div>
+
+    <!-- Task 34 -->
+    <div class="task">
+        <div class="task-header">
+            <span class="task-id">#34</span>
+            <span class="task-date">2026-04-15</span>
+            <span class="status status-done">Done</span>
+        </div>
+        <div class="task-title">GUI - match как alias для matching</div>
+        <div class="task-desc">
+            <strong>Изменение:</strong> Тип вопроса 'match' теперь обрабатывается так же как 'matching'.<br>
+            <strong>Реализация:</strong> Добавлено 'match' в условие qtype in ('matching', 'match').
+        </div>
+        <div class="task-files">
+            <span class="file-tag">converter_gui.py</span>
+        </div>
+    </div>
+
     <!-- Task 33 -->
     <div class="task">
         <div class="task-header">
