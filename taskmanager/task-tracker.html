@@ -30,6 +30,53 @@
 
     <h2>История изменений</h2>
 
+    <!-- Task 27 -->
+    <div class="task">
+        <div class="task-header">
+            <span class="task-id">#27</span>
+            <span class="task-date">2026-04-15</span>
+            <span class="status status-done">Done</span>
+        </div>
+        <div class="task-title">Исправление matching - учитываются все L и R</div>
+        <div class="task-desc">
+            <strong>Проблема:</strong> В matching/ddmatch учитывались только уникальные номера L и R. Если L1,L2 и R1,R1,R2,R2 - в XML попадали только L1→R1 и L2→R2.<br>
+            <strong>Решение:</strong> 
+            <ul>
+                <li>Теперь используются все L и R (не только уникальные)</li>
+                <li>Повторяющиеся R становятся дистракторами</li>
+                <li>Если R без пары L - дистрактор</li>
+            </ul>
+        </div>
+        <div class="task-files">
+            <span class="file-tag">universal_moodle_converter_v3_stable.py</span>
+            <span class="file-tag">README.md</span>
+        </div>
+    </div>
+
+    <!-- Task 26 -->
+    <div class="task">
+        <div class="task-header">
+            <span class="task-id">#26</span>
+            <span class="task-date">2026-04-15</span>
+            <span class="status status-done">Done</span>
+        </div>
+        <div class="task-title">Исправление numerical_partial - дублирование текстовых ответов</div>
+        <div class="task-desc">
+            <strong>Проблема:</strong> После генерации цифровыхpartial scoring ответов добавлялись текстовые ответыshortanswer_phrase.<br>
+            <strong>Решение:</strong> Убранelse branch, который дублировал ответы. Толькоnumerical partial scoring теперь генерируется с 100%/50%/0%.<br>
+            <strong>Логика:</strong>
+            <ul>
+                <li>Текст нумеруется: 1), 2), 3)... вместо +:/−:</li>
+                <li>Генерируются все permutations (1,2,3,12,13,...,654321)</li>
+                <li>100% - все правильные, 50% - частично, 0% - остальные</li>
+            </ul>
+        </div>
+        <div class="task-files">
+            <span class="file-tag">universal_moodle_converter_v3_stable.py</span>
+            <span class="file-tag">README.md</span>
+        </div>
+    </div>
+
     <!-- Task 25 -->
     <div class="task">
         <div class="task-header">

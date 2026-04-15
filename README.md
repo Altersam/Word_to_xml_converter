@@ -62,16 +62,18 @@ All questions in the block inherit the marker until the next `V2:`.
 | `{multichoice_one}` | multichoice (single=true) | One correct answer. `+:` = 100%, `-:` = 0% |
 | `{multichoice_many}` | multichoice (single=false) | Multiple correct answers. Penalty **-100%** for each incorrect |
 | `{shortanswer_phrase}` | shortanswer | Text input. Multiple `+:` = multiple acceptable answers |
-| `{numerical_partial}` | **numerical** | Multiple choice (numbered 1)2)3)...). All permutations with partial scoring: 100%/50% (no 0%) |
+| `{numerical_partial}` | **numerical** | Multiple choice (numbered 1)2)3)...). All permutations with partial scoring: 100%/50%/0% |
 | `{numerical_numcombo}` | **numerical** | Multiple choice. All position permutations = 100% |
-| `{matching}` / `{match}` | matching | Matching. Format `L1:` / `R1:`. Extra R = distractors |
+| `{matching}` / `{match}` | matching | Matching. Format `L1:` / `R1:`. **All** L and R entries are used. Duplicate R = distractors |
 | `{match_123}` | matching | Sequence. Format `N: phrase` -> phrase matched to number |
 | `{ddmatch}` | ddmatch | Drag-and-drop. Format `L1:` / `R1:` |
 | `{gapselect}` | gapselect | Dropdown lists. Text with `(N)`, options `A)...D)`, key `+:ABCD` |
 | `{cloze}` | cloze | Embedded answers `{1:SHORTANSWER:=answer}` |
 | `{numerical}` | shortanswer | Numeric answer. Generates two variants: with `.` and with `,` |
 
-**Note:** `{numerical_partial}` and `{numerical_numcombo}` generate `type="numerical"` in XML output (not "shortanswer") because they expect numeric position answers (1,2,3...).
+**Notes:** 
+- `{numerical_partial}` and `{numerical_numcombo}` generate `type="numerical"` in XML output (not "shortanswer") 
+- `{matching}` now uses **all** L and R entries (not just unique). Duplicate R entries become distractors
 
 If marker is not specified, type is determined by heuristic based on content.
 
@@ -236,3 +238,5 @@ Total:                            3224       Errors: 0
 | 17 | {numerical_numcombo} - answers not added to XML | Added missing `self.root.append(tree)` after return |
 | 18 | {numerical_numcombo} - wrong answer logic | Rewrote: takes answer from `+:` and generates all permutations of digits |
 | 19 | {numerical_numcombo} - question text split with `<br>` | Preserved original line breaks, keeps (1), (2), (3) intact |
+| 20 | {numerical_partial} - duplicate text answers | Fixed: removes duplicate else branch, only numerical answers |
+| 21 | {matching} - not all L and R entries used | Fixed: uses all entries, duplicate R = distractors |
